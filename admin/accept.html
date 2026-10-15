@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Accept invite — GCC Admin</title>
+<link rel="icon" href="../assets/img/logo-badge-transparent.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/admin.css">
+</head>
+<body class="admin">
+<main class="auth-wrap">
+  <div class="auth-brand"><img src="../assets/img/logo-badge-transparent.png" alt="Gold Coast Cowboys"><span>GCC ADMIN</span></div>
+  <form id="auth-form" class="auth-card" novalidate>
+    <h1>Join the admin team</h1>
+    <p class="auth-help" id="invite-msg">Checking your invite…</p>
+    <div id="fields" hidden>
+      <label>Your name<input type="text" name="name" required autocomplete="name"></label>
+      <label>Email<input type="email" name="email" required autocomplete="username"></label>
+      <label>Password <small>(10+ characters)</small><input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+      <p class="form-error" id="err" role="alert" hidden></p>
+      <button class="btn solid" type="submit">Create account</button>
+    </div>
+  </form>
+</main>
+<script type="module" src="accept.js"></script>
+</body>
+</html>

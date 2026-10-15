@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event &amp; Competition Passes — Gold Coast Cowboys</title>
+<meta name="description" content="Buy competition passes for Gold Coast Cowboys events.">
+<link rel="icon" href="assets/img/logo-badge-transparent.png">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a href="index.html" class="brand-mark">
+      <img src="assets/img/logo-badge-transparent.png" alt="Gold Coast Cowboys badge logo">
+      <span>GOLD COAST COWBOYS</span>
+    </a>
+    <button class="nav-toggle">☰</button>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <div class="nav-dropdown">
+        <a href="index.html#events" class="nav-dropdown-toggle">Events <span class="caret">▾</span></a>
+        <div class="nav-dropdown-menu">
+          <a href="boots-on-the-coast.html">Boots on the Coast</a>
+          <a href="st-louis-stomp.html">St. Louis Stomp</a>
+          <a href="tails-california.html">Tails California</a>
+        </div>
+      </div>
+      <a href="index.html#contact">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<header class="event-hero">
+  <div class="wrap">
+    <a href="index.html#events" class="breadcrumb">← All Events</a>
+    <div><span class="eyebrow" id="p-eyebrow">Passes</span></div>
+    <h1 id="p-title">Competition Passes</h1>
+    <p class="lede" id="p-lede">Pick your competition, pick your role, and lock in your spot.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="filter-bar"><div class="filter-group" id="p-events"></div></div>
+    <div id="p-status" class="pass-status">Loading competitions…</div>
+    <div id="p-list" class="pass-list"></div>
+    <p class="pass-note">Payments are handled securely by Stripe. Your receipt and pass confirmation are emailed to the address you enter at checkout.</p>
+  </div>
+</section>
+
+<dialog id="buy-dialog" class="buy-dialog">
+  <form method="dialog" id="buy-form" class="buy-form">
+    <h3 id="buy-title">Get your pass</h3>
+    <p id="buy-sub" class="buy-sub"></p>
+    <label>Full name<input type="text" name="name" required maxlength="120" autocomplete="name"></label>
+    <label>Email<input type="email" name="email" required maxlength="200" autocomplete="email"></label>
+    <p id="buy-error" class="buy-error" role="alert" hidden></p>
+    <div class="buy-actions">
+      <button type="button" class="btn" id="buy-cancel">Cancel</button>
+      <button type="submit" class="btn solid" id="buy-submit">Continue to payment</button>
+    </div>
+  </form>
+</dialog>
+
+<footer id="contact">
+  <div class="wrap">
+    <div class="footer-grid">
+      <a href="index.html" class="footer-brand">
+        <img src="assets/img/logo-badge-transparent.png" alt="Gold Coast Cowboys badge logo">
+        <span style="font-family:var(--display); font-size:1rem;">GOLD COAST COWBOYS</span>
+      </a>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Events</h4>
+          <a href="boots-on-the-coast.html">Boots on the Coast</a>
+          <a href="st-louis-stomp.html">St. Louis Stomp</a>
+          <a href="tails-california.html">Tails California</a>
+        </div>
+        <div class="footer-col">
+          <h4>Connect</h4>
+          <a href="https://www.instagram.com/goldcoastcowboys/" target="_blank" rel="noopener">Instagram</a>
+          <a href="mailto:goldcoastcowboys@gmail.com">goldcoastcowboys@gmail.com</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Gold Coast Cowboys. All rights reserved.</span>
+      <span>Built for the dance floor.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+<script src="assets/js/passes.js"></script>
+</body>
+</html>

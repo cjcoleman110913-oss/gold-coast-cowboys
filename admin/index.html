@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Dashboard — GCC Admin</title>
+<link rel="icon" href="../assets/img/logo-badge-transparent.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/admin.css">
+</head>
+<body class="admin">
+<header class="admin-bar">
+  <div class="admin-bar-inner">
+    <a class="admin-brand" href="index.html"><img src="../assets/img/logo-badge-transparent.png" alt=""><span>GCC ADMIN</span></a>
+    <nav class="admin-tabs" id="tabs">
+      <button data-tab="competitions" class="active">Competitions</button>
+      <button data-tab="buyers">Buyers</button>
+      <button data-tab="team">Team</button>
+    </nav>
+    <div class="admin-user"><span id="who"></span> <button class="link-btn" id="logout">Log out</button></div>
+  </div>
+</header>
+<main class="admin-main">
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <section id="tab-competitions" class="tab">
+    <div class="tab-head"><h1>Competitions</h1><button class="btn solid" id="new-comp">+ New competition</button></div>
+    <form id="comp-form" class="panel" hidden novalidate>
+      <h2 id="form-title">New competition</h2>
+      <div class="grid2">
+        <label>Event<select name="eventSlug" id="f-event" required></select></label>
+        <label>Name shown to buyers<input name="title" required maxlength="120" placeholder="e.g. Novice Jack &amp; Jill"></label>
+        <label>Style<input name="style" required maxlength="60" placeholder="e.g. Jack &amp; Jill, Strictly, Showcase"></label>
+        <label>Level / division<input name="level" required maxlength="60" placeholder="e.g. Novice, Intermediate, Open"></label>
+      </div>
+      <label>Description <small>(optional)</small><textarea name="description" rows="2" maxlength="1000" placeholder="Rules, format, anything dancers should know"></textarea></label>
+      <fieldset class="roles">
+        <legend>Passes</legend>
+        <label class="radio"><input type="radio" name="mode" value="roles" checked> Separate Lead &amp; Follow passes</label>
+        <label class="radio"><input type="radio" name="mode" value="any"> One open pass (no roles)</label>
+        <div id="role-rows"></div>
+        <p class="hint">Leave a limit blank for unlimited. Set an early-bird price and deadline to discount a pass until that date.</p>
+      </fieldset>
+      <label class="radio"><input type="checkbox" name="active" checked> Visible on the website</label>
+      <p class="form-error" id="form-err" role="alert" hidden></p>
+      <div class="form-actions"><button type="button" class="btn" id="cancel-comp">Cancel</button><button type="submit" class="btn solid">Save competition</button></div>
+    </form>
+    <div id="comp-list"></div>
+  </section>
+
+  <section id="tab-buyers" class="tab" hidden>
+    <div class="tab-head"><h1>Buyers</h1><a class="btn" id="csv-link" href="#">Download CSV</a></div>
+    <div class="filters">
+      <label>Event<select id="b-event"></select></label>
+      <label>Competition<select id="b-comp"></select></label>
+      <label>Show<select id="b-status"><option value="">Paid &amp; refunded</option><option value="paid">Paid only</option><option value="refunded">Refunded only</option><option value="pending">Pending checkouts</option><option value="all">Everything</option></select></label>
+    </div>
+    <p id="b-summary" class="hint"></p>
+    <div class="table-wrap"><table id="b-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Competition</th><th>Role</th><th>Paid</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    <p class="hint">To refund someone, issue the refund in your Stripe dashboard. It will show up here as “refunded” automatically and free up their spot.</p>
+  </section>
+
+  <section id="tab-team" class="tab" hidden>
+    <div class="tab-head"><h1>Team</h1></div>
+    <div class="panel">
+      <h2>Invite someone</h2>
+      <p class="hint">They'll get a one-time link (valid 7 days) to pick their own password. Send it to them yourself.</p>
+      <form id="invite-form" class="inline-form"><input type="email" name="email" placeholder="Their email (optional, locks the link to it)"><button class="btn solid" type="submit">Create invite link</button></form>
+      <div id="invite-out" class="invite-out" hidden><input id="invite-link" readonly><button class="btn" id="copy-invite" type="button">Copy</button></div>
+    </div>
+    <div class="panel"><h2>Admins</h2><ul id="admin-list" class="plain-list"></ul></div>
+    <div class="panel"><h2>Pending invites</h2><ul id="invite-list" class="plain-list"></ul></div>
+  </section>
+</main>
+<script type="module" src="dashboard.js"></script>
+</body>
+</html>

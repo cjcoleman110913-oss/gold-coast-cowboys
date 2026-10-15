@@ -1,0 +1,64 @@
+body.admin{ background:var(--bg); color:var(--cream); font-family:'PT Serif',Georgia,serif; }
+body.admin h1,body.admin h2,body.admin h3{ color:var(--cream); }
+body.admin input,body.admin select,body.admin textarea{ font:inherit; font-size:0.95rem; padding:10px 12px; background:var(--bg); border:1px solid var(--line); color:var(--cream); border-radius:2px; width:100%; box-sizing:border-box; }
+body.admin input:focus,body.admin select:focus,body.admin textarea:focus{ outline:2px solid var(--cream); outline-offset:1px; }
+body.admin label{ display:grid; gap:6px; font-family:var(--mono); font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--cream-dim); }
+body.admin label small{ text-transform:none; letter-spacing:0; }
+body.admin code{ background:#222; padding:2px 6px; border-radius:3px; }
+.auth-wrap{ min-height:100vh; display:grid; place-content:center; gap:22px; padding:24px 16px; }
+.auth-brand{ display:flex; align-items:center; gap:12px; justify-content:center; font-family:var(--mono); letter-spacing:0.2em; }
+.auth-brand img{ height:48px; }
+.auth-card{ background:var(--bg-raise); border:1px solid var(--line); padding:32px; width:min(420px,calc(100vw - 32px)); display:grid; gap:16px; border-radius:4px; box-sizing:border-box; }
+.auth-card h1{ margin:0; font-size:1.6rem; }
+.auth-help,.auth-alt,.hint{ color:var(--cream-dim); font-size:0.9rem; margin:0; }
+.auth-card a,.hint a{ text-decoration:underline; }
+.form-error{ color:#ff9b8a; margin:0; }
+.admin-bar{ position:sticky; top:0; z-index:20; background:#050505; border-bottom:1px solid var(--line); }
+.admin-bar-inner{ max-width:1100px; margin:0 auto; padding:10px 16px; display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+.admin-brand{ display:flex; align-items:center; gap:10px; font-family:var(--mono); letter-spacing:0.15em; font-size:0.8rem; }
+.admin-brand img{ height:34px; }
+.admin-tabs{ display:flex; gap:6px; flex:1; }
+.admin-tabs button,.link-btn{ background:none; border:0; color:var(--cream-dim); font-family:var(--mono); font-size:0.78rem; letter-spacing:0.1em; text-transform:uppercase; padding:10px 14px; cursor:pointer; border-bottom:2px solid transparent; }
+.admin-tabs button.active{ color:var(--cream); border-bottom-color:var(--cream); }
+.admin-user{ font-size:0.85rem; color:var(--cream-dim); }
+.link-btn{ padding:4px 8px; border:0; text-decoration:underline; }
+.link-btn.danger,.btn.danger{ color:#ff9b8a; }
+.btn.danger{ border-color:#ff9b8a; }
+.btn.danger:hover{ background:#ff9b8a; color:var(--ink); }
+.admin-main{ max-width:1100px; margin:0 auto; padding:28px 16px 80px; }
+.tab-head{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+.tab-head h1{ margin:0; font-size:1.8rem; }
+.panel{ background:var(--bg-raise); border:1px solid var(--line); padding:24px; margin-bottom:22px; border-radius:4px; display:grid; gap:16px; }
+.panel h2{ margin:0; font-size:1.2rem; }
+.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+fieldset.roles{ border:1px solid var(--line); padding:16px; display:grid; gap:12px; border-radius:3px; margin:0; }
+fieldset.roles legend{ font-family:var(--mono); font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; padding:0 8px; }
+body.admin label.radio{ display:flex; align-items:center; gap:10px; text-transform:none; letter-spacing:0; font-family:inherit; font-size:0.95rem; color:var(--cream); }
+body.admin label.radio input{ width:auto; }
+.role-row{ display:grid; grid-template-columns:90px repeat(4,1fr); gap:12px; align-items:end; padding:12px 0; border-top:1px solid var(--line); }
+.form-actions{ display:flex; gap:12px; justify-content:flex-end; }
+.group h2{ font-size:1.1rem; margin:30px 0 14px; color:var(--cream-dim); font-family:var(--mono); letter-spacing:0.15em; text-transform:uppercase; }
+.comp{ background:var(--bg-raise); border:1px solid var(--line); padding:20px; margin-bottom:14px; border-radius:4px; }
+.comp.hidden-comp{ opacity:0.65; }
+.comp-top{ display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.comp h3{ margin:0; font-size:1.2rem; }
+.meta{ margin:4px 0 0; color:var(--sage); font-family:var(--mono); font-size:0.78rem; letter-spacing:0.1em; text-transform:uppercase; }
+.desc{ color:var(--cream-dim); }
+.comp-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+.comp-actions .btn{ padding:0.55em 1em; font-size:0.72rem; }
+.badge{ font-family:var(--mono); font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; border:1px solid var(--sage); color:var(--sage); padding:2px 8px; margin-left:10px; border-radius:20px; vertical-align:middle; }
+table{ width:100%; border-collapse:collapse; }
+th,td{ text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-size:0.9rem; vertical-align:top; }
+th{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--cream-dim); }
+.mini{ margin-top:14px; }
+.table-wrap{ overflow-x:auto; background:var(--bg-raise); border:1px solid var(--line); border-radius:4px; margin:12px 0; }
+.filters{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:14px; }
+.status{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase; padding:3px 9px; border-radius:20px; border:1px solid var(--line); }
+.status.paid{ border-color:#7fc99a; color:#7fc99a; } .status.refunded{ border-color:#ff9b8a; color:#ff9b8a; } .status.pending{ color:var(--gold); border-color:var(--gold); }
+.empty{ color:var(--sage); text-align:center; padding:24px; }
+.inline-form{ display:flex; gap:12px; flex-wrap:wrap; } .inline-form input{ flex:1; min-width:220px; }
+.invite-out{ display:flex; gap:10px; } .invite-out input{ flex:1; }
+.plain-list{ list-style:none; margin:0; padding:0; } .plain-list li{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); gap:12px; }
+.toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--cream); color:var(--ink); padding:12px 20px; border-radius:3px; z-index:50; font-family:var(--mono); font-size:0.85rem; }
+.toast.bad{ background:#ff9b8a; }
+@media (max-width:760px){ .grid2,.filters{ grid-template-columns:1fr; } .role-row{ grid-template-columns:1fr 1fr; } .role-row strong{ grid-column:1/-1; } }

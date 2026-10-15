@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Set up — GCC Admin</title>
+<link rel="icon" href="../assets/img/logo-badge-transparent.png">
+<link rel="stylesheet" href="../assets/css/style.css">
+<link rel="stylesheet" href="../assets/css/admin.css">
+</head>
+<body class="admin">
+<main class="auth-wrap">
+  <div class="auth-brand"><img src="../assets/img/logo-badge-transparent.png" alt="Gold Coast Cowboys"><span>GCC ADMIN</span></div>
+  <form id="auth-form" class="auth-card" novalidate>
+    <h1>Create the first admin</h1>
+    <p class="auth-help">This only works once. You'll need the setup key that was added to the site's server settings (<code>ADMIN_SETUP_KEY</code>).</p>
+    <label>Setup key<input type="password" name="setupKey" required autocomplete="off"></label>
+    <label>Your name<input type="text" name="name" required autocomplete="name"></label>
+    <label>Email<input type="email" name="email" required autocomplete="username"></label>
+    <label>Password <small>(10+ characters)</small><input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+    <p class="form-error" id="err" role="alert" hidden></p>
+    <button class="btn solid" type="submit">Create account</button>
+  </form>
+</main>
+<script type="module" src="setup.js"></script>
+</body>
+</html>

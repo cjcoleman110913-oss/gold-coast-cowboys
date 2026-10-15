@@ -1,0 +1,18 @@
+{
+  "name": "gold-coast-cowboys-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "node dev-server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "stripe": "^17.5.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17"
+  }
+}
