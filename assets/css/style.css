@@ -118,7 +118,9 @@ h2,h3{
 .nav-links a:hover{ color:var(--cream); }
 .nav-links a.current{ color:var(--terracotta-bright); }
 
+.nav-links a{ line-height:1.2; }
 .nav-dropdown{ position:relative; }
+@media (min-width:761px){ .nav-dropdown{ display:flex; align-items:center; } }
 .nav-dropdown::after{
   content:''; position:absolute; top:100%; left:50%; transform:translateX(-50%);
   width:220px; height:14px; z-index:79;
