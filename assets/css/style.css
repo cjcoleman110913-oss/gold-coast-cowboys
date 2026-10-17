@@ -430,6 +430,10 @@ footer{
 }
 .event-hero .eyebrow{ margin-bottom:1em; }
 .event-hero h1{ font-size:clamp(2.2rem,5.4vw,3.6rem); }
+.event-hero .event-tagline{
+  font-family:var(--mono); font-size:0.82rem; letter-spacing:0.22em; text-transform:uppercase;
+  color:var(--gold); margin:10px 0 0;
+}
 .event-hero p.lede{
   font-family:var(--body); font-style:italic; color:var(--cream-dim);
   font-size:1.1rem; max-width:560px; margin:14px auto 0;
