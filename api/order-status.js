@@ -12,5 +12,5 @@ export default wrap(async (req, res) => {
   const o = rows[0];
   if (!o) throw new HttpError(404, 'Order not found');
   send(res, 200, { status: o.status, name: o.buyer_name, email: o.email, amountCents: o.amount_cents,
-    role: o.role, title: o.title, style: o.style, level: o.level, event: EVENT_SLUGS[o.event_slug] });
+    role: o.role, title: o.title, style: o.style, level: o.level, event: o.event_slug ? (EVENT_SLUGS[o.event_slug] || o.event_slug) : null });
 });

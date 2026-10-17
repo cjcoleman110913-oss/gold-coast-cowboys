@@ -579,3 +579,6 @@ footer{
   .pass-row{ grid-template-columns:1fr 1fr; }
   .pass-row .btn{ grid-column:1 / -1; justify-content:center; }
 }
+
+.pass-group{ font-family:var(--mono); font-size:0.8rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--cream-dim); margin:18px 0 -6px; font-weight:400; }
+.pass-group:first-child{ margin-top:0; }

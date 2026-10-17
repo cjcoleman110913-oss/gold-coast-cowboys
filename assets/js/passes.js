@@ -3,21 +3,24 @@
   var ROLE = { lead: 'Lead', follow: 'Follow', any: 'Open' };
   var $ = function (id) { return document.getElementById(id); };
   var slug = new URLSearchParams(location.search).get('event');
-  if (!EVENTS[slug]) slug = 'boots-on-the-coast';
+  if (!EVENTS[slug]) slug = null; // null = show every competition
 
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
   function money(c) { return '$' + (c % 100 ? (c / 100).toFixed(2) : String(c / 100)); }
   function when(iso) { return new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); }
 
   var tabs = $('p-events');
+  var allTab = el('a', 'filter-btn' + (!slug ? ' active' : ''), 'All Competitions');
+  allTab.href = 'passes.html';
+  tabs.appendChild(allTab);
   Object.keys(EVENTS).forEach(function (s) {
     var b = el('a', 'filter-btn' + (s === slug ? ' active' : ''), EVENTS[s]);
     b.href = 'passes.html?event=' + s;
     tabs.appendChild(b);
   });
-  $('p-eyebrow').textContent = EVENTS[slug];
+  $('p-eyebrow').textContent = slug ? EVENTS[slug] : 'Gold Coast Cowboys';
   $('p-title').textContent = 'Competition Passes';
-  document.title = EVENTS[slug] + ' Passes — Gold Coast Cowboys';
+  document.title = (slug ? EVENTS[slug] + ' ' : '') + 'Competition Passes — Gold Coast Cowboys';
 
   function passRow(c, p) {
     var row = el('div', 'pass-row');
@@ -39,7 +42,12 @@
 
   function render(list) {
     var box = $('p-list'); box.textContent = '';
+    var lastGroup = '__none__';
     list.forEach(function (c) {
+      if (!slug) {
+        var group = c.eventSlug ? EVENTS[c.eventSlug] : 'More Competitions';
+        if (group !== lastGroup) { box.appendChild(el('h2', 'pass-group', group)); lastGroup = group; }
+      }
       var card = el('article', 'pass-card');
       var h = el('div', 'pass-card-head');
       h.appendChild(el('h3', null, c.title));
@@ -51,8 +59,8 @@
     });
   }
 
-  fetch('/api/passes?event=' + slug).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
-    if (!d.competitions.length) { $('p-status').textContent = 'Competition passes for ' + EVENTS[slug] + ' aren’t open yet. Check back soon, or join the newsletter to be first to know.'; return; }
+  fetch('/api/passes' + (slug ? '?event=' + slug : '')).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
+    if (!d.competitions.length) { $('p-status').textContent = 'Competition passes ' + (slug ? 'for ' + EVENTS[slug] + ' ' : '') + 'aren’t open yet. Check back soon, or join the newsletter to be first to know.'; return; }
     $('p-status').hidden = true; render(d.competitions);
   }).catch(function () { $('p-status').textContent = 'We couldn’t load passes right now. Please refresh and try again.'; });
 

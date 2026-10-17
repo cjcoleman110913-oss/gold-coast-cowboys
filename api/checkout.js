@@ -50,7 +50,7 @@ export default wrap(async (req, res) => {
         price_data: {
           currency: 'usd',
           unit_amount: order.amount,
-          product_data: { name: `${EVENT_SLUGS[pt.event_slug] || pt.event_slug}: ${pt.title} (${roleLabel})`,
+          product_data: { name: `${pt.event_slug ? (EVENT_SLUGS[pt.event_slug] || pt.event_slug) + ': ' : ''}${pt.title} (${roleLabel})`,
             description: `${pt.style} · ${pt.level}` }
         }
       }],
@@ -58,7 +58,7 @@ export default wrap(async (req, res) => {
       payment_intent_data: { metadata: { order_id: String(order.id) } },
       expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
       success_url: `${base}/pass-success.html?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${base}/passes.html?event=${pt.event_slug}`
+      cancel_url: pt.event_slug ? `${base}/passes.html?event=${pt.event_slug}` : `${base}/passes.html`
     });
     await query('UPDATE orders SET stripe_session_id = $1 WHERE id = $2', [session.id, order.id]);
     send(res, 200, { url: session.url });

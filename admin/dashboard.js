@@ -21,7 +21,7 @@ async function init() {
   setCsrf(me.csrf); events = me.events;
   $('who').textContent = me.admin.name;
   $('logout').onclick = async () => { await api('logout', { method: 'POST', body: {} }); location.href = 'login.html'; };
-  $('f-event').replaceChildren(...Object.entries(events).map(([k, v]) => el('option', { value: k }, v)));
+  $('f-event').replaceChildren(el('option', { value: '' }, 'No specific event'), ...Object.entries(events).map(([k, v]) => el('option', { value: k }, v)));
   document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
   await loadCompetitions();
 }
@@ -39,9 +39,9 @@ async function loadCompetitions() {
   const list = $('comp-list');
   if (!competitions.length) { list.replaceChildren(el('p', { class: 'empty' }, 'No competitions yet. Click “New competition” to add the first one.')); return; }
   const groups = {};
-  for (const c of competitions) (groups[c.eventSlug] ||= []).push(c);
+  for (const c of competitions) (groups[c.eventSlug || ''] ||= []).push(c);
   list.replaceChildren(...Object.entries(groups).map(([slug, items]) =>
-    el('div', { class: 'group' }, el('h2', {}, events[slug] || slug), ...items.map(compCard))));
+    el('div', { class: 'group' }, el('h2', {}, slug ? (events[slug] || slug) : 'Not tied to an event'), ...items.map(compCard))));
 }
 
 function compCard(c) {
@@ -89,7 +89,7 @@ function openForm(c) {
   editingId = c?.id || null;
   $('form-title').textContent = c ? 'Edit competition' : 'New competition';
   form.reset(); $('form-err').hidden = true;
-  $('f-event').value = c?.eventSlug || Object.keys(events)[0];
+  $('f-event').value = c ? (c.eventSlug || '') : '';
   for (const k of ['title', 'style', 'level', 'description']) form.elements[k].value = c?.[k] || '';
   form.elements.active.checked = c ? c.active : true;
   const mode = c && c.passes.some((p) => p.role === 'any') ? 'any' : 'roles';
@@ -119,12 +119,12 @@ form.addEventListener('submit', async (e) => {
 
 // ---------- buyers ----------
 function viewBuyers(c) {
-  showTab('buyers'); $('b-event').value = c.eventSlug; fillComps(); $('b-comp').value = String(c.id); loadBuyers();
+  showTab('buyers'); $('b-event').value = c.eventSlug || 'none'; fillComps(); $('b-comp').value = String(c.id); loadBuyers();
 }
 function fillComps() {
   const ev = $('b-event').value;
   $('b-comp').replaceChildren(el('option', { value: '' }, 'All competitions'),
-    ...competitions.filter((c) => !ev || c.eventSlug === ev).map((c) => el('option', { value: c.id }, `${c.title} (${c.level})`)));
+    ...competitions.filter((c) => !ev || (ev === 'none' ? !c.eventSlug : c.eventSlug === ev)).map((c) => el('option', { value: c.id }, `${c.title} (${c.level})`)));
 }
 $('b-event').replaceChildren(el('option', { value: '' }, 'All events'));
 $('b-event').addEventListener('change', () => { fillComps(); loadBuyers(); });
@@ -139,7 +139,7 @@ function buyerQuery() {
 }
 async function loadBuyers() {
   if ($('b-event').options.length === 1) {
-    $('b-event').append(...Object.entries(events).map(([k, v]) => el('option', { value: k }, v)));
+    $('b-event').append(...Object.entries(events).map(([k, v]) => el('option', { value: k }, v)), el('option', { value: 'none' }, 'No specific event'));
     fillComps();
   }
   try {

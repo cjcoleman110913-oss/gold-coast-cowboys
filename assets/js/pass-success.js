@@ -11,7 +11,7 @@
         $('s-title').textContent = 'You’re in, ' + o.name.split(' ')[0] + '!';
         $('s-lede').textContent = 'Your payment went through. A receipt is on its way to ' + o.email + '.';
         var c = $('s-card'); c.textContent = '';
-        c.appendChild(line('Event', o.event)); c.appendChild(line('Competition', o.title + ' (' + o.level + ')'));
+        if (o.event) c.appendChild(line('Event', o.event)); c.appendChild(line('Competition', o.title + ' (' + o.level + ')'));
         c.appendChild(line('Role', ROLE[o.role])); c.appendChild(line('Paid', '$' + (o.amountCents / 100).toFixed(2)));
         c.hidden = false;
       } else if (o.status === 'pending' && tries++ < 10) {

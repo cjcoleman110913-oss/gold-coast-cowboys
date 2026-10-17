@@ -238,3 +238,49 @@ test('logout clears session', async () => {
   await c.req('POST', '/api/admin/login', { email: 'cj@x.com', password: PW });
   assert.equal((await c.req('POST', '/api/admin/logout', {})).status, 200);
 });
+
+test('competitions without an event: create, list, buy, export', async () => {
+  const r = await owner.req('POST', '/api/admin/competition-save', { eventSlug: '', title: 'Standalone Strictly', style: 'Strictly', level: 'Open',
+    passes: [{ role: 'any', price: 25, cap: 5 }] });
+  assert.equal(r.status, 200);
+  const all = (await new Client().req('GET', '/api/passes')).json.competitions;
+  const mine = all.find((c) => c.title === 'Standalone Strictly');
+  assert.ok(mine && mine.eventSlug === null, 'shows on the all-competitions list');
+  assert.ok(all.some((c) => c.eventSlug), 'event competitions are listed there too');
+  assert.equal(all.at(-1).title, 'Standalone Strictly', 'standalone ones are listed last');
+  const none = (await new Client().req('GET', '/api/passes?event=none')).json.competitions;
+  assert.deepEqual(none.map((c) => c.title), ['Standalone Strictly']);
+  for (const slug of ['boots-on-the-coast', 'st-louis-stomp', 'tails-california']) {
+    const l = (await new Client().req('GET', `/api/passes?event=${slug}`)).json.competitions;
+    assert.ok(!l.some((c) => c.title === 'Standalone Strictly'));
+  }
+  const b = await buy(mine.passes[0].id, 's@x.com', 'Solo');
+  assert.equal(b.status, 200);
+  const sess = [...S.stripe.sessions.values()].at(-1);
+  assert.equal(sess.line_items[0].price_data.product_data.name, 'Standalone Strictly (Open)');
+  assert.ok(sess.cancel_url.endsWith('/passes.html'));
+  const sid = [...S.stripe.sessions.keys()].at(-1);
+  assert.equal(await pay(sid), 200);
+  const st = await new Client().req('GET', `/api/order-status?session_id=${sid}`);
+  assert.equal(st.json.status, 'paid'); assert.equal(st.json.event, null);
+  const filtered = (await owner.req('GET', '/api/admin/orders?event=none')).json.orders;
+  assert.equal(filtered.length, 1);
+  assert.match((await owner.req('GET', '/api/admin/orders-csv?event=none')).text, /No specific event/);
+  // can switch an existing competition to/from an event
+  const up = await owner.req('POST', '/api/admin/competition-save', { id: mine.id, eventSlug: 'tails-california', title: mine.title, style: 'Strictly', level: 'Open', active: true,
+    passes: [{ role: 'any', price: 25, cap: 5 }] });
+  assert.equal(up.status, 200);
+  assert.equal((await new Client().req('GET', '/api/passes?event=tails-california')).json.competitions.length, 1);
+});
+
+test('migration: existing database with NOT NULL event_slug is upgraded', async () => {
+  const { PGlite } = await import('@electric-sql/pglite');
+  const { SCHEMA } = await import('../lib/db.js');
+  const old = new PGlite();
+  await old.exec(`CREATE TABLE admins (id SERIAL PRIMARY KEY, email TEXT, name TEXT, password_hash TEXT, created_at TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE competitions (id SERIAL PRIMARY KEY, event_slug TEXT NOT NULL, title TEXT NOT NULL, style TEXT NOT NULL, level TEXT NOT NULL, description TEXT, active BOOLEAN NOT NULL DEFAULT TRUE, created_by INT, created_at TIMESTAMPTZ NOT NULL DEFAULT now());`);
+  await old.exec(SCHEMA);
+  await old.exec(`INSERT INTO competitions (event_slug,title,style,level) VALUES (NULL,'x','y','z')`);
+  await old.exec(SCHEMA); // idempotent second run
+  assert.equal((await old.query('SELECT count(*)::int n FROM competitions')).rows[0].n, 1);
+});

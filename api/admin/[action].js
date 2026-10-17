@@ -173,8 +173,8 @@ const actions = {
     const { admin } = await requireAdmin(req);
     const b = await readJson(req);
     const id = b.id ? Number(b.id) : null;
-    const eventSlug = String(b.eventSlug || '');
-    if (!EVENT_SLUGS[eventSlug]) throw new HttpError(400, 'Choose an event.');
+    const eventSlug = String(b.eventSlug || '') || null; // optional: null = not tied to an event
+    if (eventSlug && !EVENT_SLUGS[eventSlug]) throw new HttpError(400, 'Unknown event.');
     const title = String(b.title || '').trim().slice(0, 120);
     const style = String(b.style || '').trim().slice(0, 60);
     const level = String(b.level || '').trim().slice(0, 60);
@@ -277,7 +277,7 @@ const actions = {
     };
     const head = ['Order', 'Status', 'Name', 'Email', 'Event', 'Competition', 'Style', 'Level', 'Role', 'Amount (USD)', 'Paid at'];
     const lines = [head.join(',')].concat(rows.map((o) => [
-      o.id, o.status, o.buyer_name, o.email, EVENT_SLUGS[o.event_slug] || o.event_slug, o.title, o.style, o.level, o.role,
+      o.id, o.status, o.buyer_name, o.email, o.event_slug ? (EVENT_SLUGS[o.event_slug] || o.event_slug) : 'No specific event', o.title, o.style, o.level, o.role,
       (o.amount_cents / 100).toFixed(2), o.paid_at ? new Date(o.paid_at).toISOString() : ''
     ].map(esc).join(',')));
     res.statusCode = 200;
@@ -296,7 +296,8 @@ async function fetchOrders(sp) {
   const comp = Number.parseInt(sp.get('competition'), 10);
   if (Number.isInteger(comp)) { params.push(comp); where.push(`c.id = $${params.length}`); }
   const ev = sp.get('event');
-  if (ev) { params.push(ev); where.push(`c.event_slug = $${params.length}`); }
+  if (ev === 'none') where.push('c.event_slug IS NULL');
+  else if (ev) { params.push(ev); where.push(`c.event_slug = $${params.length}`); }
   const { rows } = await query(
     `SELECT o.id, o.status, o.buyer_name, o.email, o.amount_cents, o.paid_at, o.created_at,
             pt.role, c.id AS competition_id, c.title, c.style, c.level, c.event_slug
