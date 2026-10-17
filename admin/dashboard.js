@@ -105,14 +105,22 @@ function openForm(c) {
   f.style.value = c?.style || ''; f.level.value = c?.level || ''; f.eventSlug.value = c?.eventSlug || '';
   f.active.checked = c ? c.active : true;
   form.querySelector('details.more').open = !!(c && (c.style || c.level || c.eventSlug));
-  $('role-rows').replaceChildren(...(c?.passes?.length ? c.passes : [{}]).map(passRow));
+  $('role-rows').replaceChildren(...(c?.passes || []).map(passRow));
   form.hidden = false; form.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 $('new-comp').onclick = () => openForm(null);
 $('cancel-comp').onclick = () => { form.hidden = true; };
-$('add-pass').onclick = () => $('role-rows').append(passRow());
+$('add-pass').onclick = () => {
+  const row = passRow(); $('role-rows').append(row); row.querySelector('[name=name]').focus();
+};
+$('add-linedance').onclick = () => {
+  const have = [...document.querySelectorAll('.role-row [name=name]')].map((i) => i.value.trim().toLowerCase());
+  if (have.includes('line dance')) return toast('There is already a Line Dance pass.', true);
+  const row = passRow({ name: 'Line Dance' }); $('role-rows').append(row); row.querySelector('[name=price]').focus();
+};
 $('add-leadfollow').onclick = () => {
   const have = [...document.querySelectorAll('.role-row [name=role]')].map((s) => s.value);
+  if (have.includes('lead') && have.includes('follow')) return toast('Lead and Follow passes are already added.', true);
   if (!have.includes('lead')) $('role-rows').append(passRow({ name: 'Lead', role: 'lead' }));
   if (!have.includes('follow')) $('role-rows').append(passRow({ name: 'Follow', role: 'follow' }));
 };
@@ -125,6 +133,7 @@ form.addEventListener('submit', async (e) => {
       earlyUntil: g('earlyUntil') ? new Date(g('earlyUntil')).toISOString() : '' };
   });
   const f = form.elements;
+  if (!passes.length) { err.textContent = 'Add at least one pass using the buttons above.'; err.hidden = false; return; }
   try {
     await api('competition-save', { method: 'POST', body: {
       id: editingId, title: f.title.value, date: f.date.value, endDate: f.endDate.value, location: f.location.value,
