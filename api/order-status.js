@@ -6,11 +6,15 @@ export default wrap(async (req, res) => {
   const sid = new URL(req.url, 'http://x').searchParams.get('session_id') || '';
   if (!/^cs_[A-Za-z0-9_]+$/.test(sid)) throw new HttpError(400, 'Bad session');
   const { rows } = await query(
-    `SELECT o.status, o.buyer_name, o.email, o.amount_cents, pt.role, c.title, c.style, c.level, c.event_slug
+    `SELECT o.status, o.buyer_name, o.email, o.amount_cents, pt.name AS pass_name, pt.role, c.title, c.style, c.level, c.event_slug, c.event_date, c.end_date, c.location
        FROM orders o JOIN pass_types pt ON pt.id = o.pass_type_id JOIN competitions c ON c.id = pt.competition_id
       WHERE o.stripe_session_id = $1`, [sid]);
   const o = rows[0];
   if (!o) throw new HttpError(404, 'Order not found');
   send(res, 200, { status: o.status, name: o.buyer_name, email: o.email, amountCents: o.amount_cents,
-    role: o.role, title: o.title, style: o.style, level: o.level, event: o.event_slug ? (EVENT_SLUGS[o.event_slug] || o.event_slug) : null });
+    passName: o.pass_name, role: o.role, title: o.title, style: o.style, level: o.level,
+    location: o.location,
+    date: o.event_date ? new Date(o.event_date).toISOString().slice(0, 10) : null,
+    endDate: o.end_date ? new Date(o.end_date).toISOString().slice(0, 10) : null,
+    event: o.event_slug ? (EVENT_SLUGS[o.event_slug] || o.event_slug) : null });
 });

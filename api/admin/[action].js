@@ -173,73 +173,86 @@ const actions = {
     const { admin } = await requireAdmin(req);
     const b = await readJson(req);
     const id = b.id ? Number(b.id) : null;
-    const eventSlug = String(b.eventSlug || '') || null; // optional: null = not tied to an event
-    if (eventSlug && !EVENT_SLUGS[eventSlug]) throw new HttpError(400, 'Unknown event.');
+    const eventSlug = String(b.eventSlug || '') || null; // optional: show on one of the three GCC event pages
+    if (eventSlug && !EVENT_SLUGS[eventSlug]) throw new HttpError(400, 'Unknown event page.');
     const title = String(b.title || '').trim().slice(0, 120);
-    const style = String(b.style || '').trim().slice(0, 60);
-    const level = String(b.level || '').trim().slice(0, 60);
-    const description = String(b.description || '').trim().slice(0, 1000) || null;
-    if (!title || !style || !level) throw new HttpError(400, 'Title, style and level/division are required.');
-    if (!Array.isArray(b.passes) || !b.passes.length) throw new HttpError(400, 'Add at least one pass (lead, follow or open).');
+    const style = String(b.style || '').trim().slice(0, 60) || null;
+    const level = String(b.level || '').trim().slice(0, 60) || null;
+    const location = String(b.location || '').trim().slice(0, 200) || null;
+    const description = String(b.description || '').trim().slice(0, 2000) || null;
+    if (!title) throw new HttpError(400, 'Add a title.');
+    const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(new Date(v + 'T00:00:00Z').getTime());
+    const eventDate = String(b.date || '');
+    if (!isDate(eventDate)) throw new HttpError(400, 'Choose the event date.');
+    const endDate = String(b.endDate || '') || null;
+    if (endDate && (!isDate(endDate) || endDate < eventDate)) throw new HttpError(400, 'The end date must be on or after the start date.');
+    if (!Array.isArray(b.passes) || !b.passes.length) throw new HttpError(400, 'Add at least one pass.');
+    if (b.passes.length > 30) throw new HttpError(400, 'That is too many passes.');
 
     const passes = [];
-    const seen = new Set();
+    const names = new Set();
     for (const p of b.passes) {
-      if (!ROLES.includes(p.role)) throw new HttpError(400, 'Bad role.');
-      if (seen.has(p.role)) throw new HttpError(400, `Duplicate ${p.role} pass.`);
-      seen.add(p.role);
-      if (seen.has('any') && seen.size > 1) throw new HttpError(400, 'Use either an Open pass or Lead/Follow passes, not both.');
+      const role = p.role ? String(p.role) : null;
+      if (role && !ROLES.includes(role)) throw new HttpError(400, 'Bad role.');
+      const name = String(p.name || '').trim().slice(0, 80) || (role === 'lead' ? 'Lead' : role === 'follow' ? 'Follow' : '');
+      if (!name) throw new HttpError(400, 'Give every pass a name.');
+      if (names.has(name.toLowerCase())) throw new HttpError(400, `Two passes are named “${name}”. Names must be different.`);
+      names.add(name.toLowerCase());
       const price = dollarsToCents(p.price);
-      if (!Number.isFinite(price) || price < 50) throw new HttpError(400, 'Price must be at least $0.50.');
+      if (!Number.isFinite(price) || price < 50) throw new HttpError(400, `${name}: price must be at least $0.50.`);
       let cap = null;
       if (p.cap !== '' && p.cap != null) {
         cap = Number.parseInt(p.cap, 10);
-        if (!Number.isInteger(cap) || cap < 0) throw new HttpError(400, 'Pass limit must be a whole number (or blank for no limit).');
+        if (!Number.isInteger(cap) || cap < 0) throw new HttpError(400, `${name}: the limit must be a whole number (or blank for no limit).`);
       }
       let early = null, until = null;
       if (p.earlyPrice !== '' && p.earlyPrice != null) {
         early = dollarsToCents(p.earlyPrice);
-        if (!Number.isFinite(early) || early < 50) throw new HttpError(400, 'Early-bird price must be at least $0.50.');
-        if (early >= price) throw new HttpError(400, 'Early-bird price must be lower than the regular price.');
+        if (!Number.isFinite(early) || early < 50) throw new HttpError(400, `${name}: early-bird price must be at least $0.50.`);
+        if (early >= price) throw new HttpError(400, `${name}: the early-bird price must be lower than the regular price.`);
         until = p.earlyUntil ? new Date(p.earlyUntil) : null;
-        if (!until || Number.isNaN(until.getTime())) throw new HttpError(400, 'Set the early-bird deadline.');
+        if (!until || Number.isNaN(until.getTime())) throw new HttpError(400, `${name}: set the early-bird deadline.`);
       }
-      passes.push({ role: p.role, price, cap, early, until: until ? until.toISOString() : null });
+      passes.push({ id: p.id ? Number(p.id) : null, name, role, price, cap, early, until: until ? until.toISOString() : null });
     }
-    if (passes.some((p) => p.role === 'any') && passes.length > 1) throw new HttpError(400, 'Use either an Open pass or Lead/Follow passes, not both.');
 
     const outId = await tx(async (db) => {
       let cid = id;
       if (cid) {
         const r = await db.query(
-          `UPDATE competitions SET event_slug=$2, title=$3, style=$4, level=$5, description=$6, active=$7 WHERE id=$1 RETURNING id`,
-          [cid, eventSlug, title, style, level, description, b.active !== false]);
-        if (!r.rows[0]) throw new HttpError(404, 'Competition not found.');
+          `UPDATE competitions SET event_slug=$2, title=$3, style=$4, level=$5, description=$6, active=$7,
+                  event_date=$8, end_date=$9, location=$10 WHERE id=$1 RETURNING id`,
+          [cid, eventSlug, title, style, level, description, b.active !== false, eventDate, endDate, location]);
+        if (!r.rows[0]) throw new HttpError(404, 'Event not found.');
       } else {
         const r = await db.query(
-          `INSERT INTO competitions (event_slug,title,style,level,description,active,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-          [eventSlug, title, style, level, description, b.active !== false, admin.id]);
+          `INSERT INTO competitions (event_slug,title,style,level,description,active,event_date,end_date,location,created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+          [eventSlug, title, style, level, description, b.active !== false, eventDate, endDate, location, admin.id]);
         cid = r.rows[0].id;
       }
       const { rows: existing } = await db.query(
-        `SELECT pt.id, pt.role, (SELECT count(*)::int FROM orders o WHERE o.pass_type_id = pt.id AND (o.status = 'paid' OR (o.status = 'pending' AND o.expires_at > now()))) AS used
+        `SELECT pt.id, pt.name, (SELECT count(*)::int FROM orders o WHERE o.pass_type_id = pt.id AND (o.status = 'paid' OR (o.status = 'pending' AND o.expires_at > now()))) AS used
            FROM pass_types pt WHERE competition_id = $1 FOR UPDATE`, [cid]);
+      for (const p of passes) {
+        if (p.id && !existing.find((e) => e.id === p.id)) throw new HttpError(400, 'A pass on this form no longer exists. Reload and try again.');
+      }
       for (const old of existing) {
-        if (!passes.find((p) => p.role === old.role)) {
+        if (!passes.find((p) => p.id === old.id)) {
           const { rows: [{ n }] } = await db.query('SELECT count(*)::int AS n FROM orders WHERE pass_type_id = $1', [old.id]);
-          if (n > 0) throw new HttpError(409, `The ${old.role} pass already has orders and can't be removed. Set its limit instead.`);
+          if (n > 0) throw new HttpError(409, `“${old.name}” already has orders and can't be removed. Set its limit instead.`);
           await db.query('DELETE FROM pass_types WHERE id = $1', [old.id]);
         }
       }
       for (const p of passes) {
-        const old = existing.find((e) => e.role === p.role);
+        const old = p.id ? existing.find((e) => e.id === p.id) : null;
         if (old) {
-          if (p.cap != null && p.cap < old.used) throw new HttpError(409, `The ${p.role} limit can't be lower than the ${old.used} already sold or held.`);
-          await db.query(`UPDATE pass_types SET cap=$2, price_cents=$3, early_price_cents=$4, early_until=$5 WHERE id=$1`,
-            [old.id, p.cap, p.price, p.early, p.until]);
+          if (p.cap != null && p.cap < old.used) throw new HttpError(409, `“${p.name}” limit can't be lower than the ${old.used} already sold or held.`);
+          await db.query(`UPDATE pass_types SET name=$2, role=$3, cap=$4, price_cents=$5, early_price_cents=$6, early_until=$7 WHERE id=$1`,
+            [old.id, p.name, p.role, p.cap, p.price, p.early, p.until]);
         } else {
-          await db.query(`INSERT INTO pass_types (competition_id, role, cap, price_cents, early_price_cents, early_until) VALUES ($1,$2,$3,$4,$5,$6)`,
-            [cid, p.role, p.cap, p.price, p.early, p.until]);
+          await db.query(`INSERT INTO pass_types (competition_id, name, role, cap, price_cents, early_price_cents, early_until) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [cid, p.name, p.role, p.cap, p.price, p.early, p.until]);
         }
       }
       return cid;
@@ -254,7 +267,7 @@ const actions = {
     const id = Number(b.id);
     const { rows: [{ n }] } = await query(
       `SELECT count(*)::int AS n FROM orders o JOIN pass_types pt ON pt.id = o.pass_type_id WHERE pt.competition_id = $1`, [id]);
-    if (n > 0) throw new HttpError(409, 'This competition has orders, so it can’t be deleted. Hide it instead.');
+    if (n > 0) throw new HttpError(409, 'This event has orders, so it can’t be deleted. Hide it instead.');
     await query('DELETE FROM competitions WHERE id = $1', [id]);
     send(res, 200, { ok: true });
   },
@@ -275,10 +288,10 @@ const actions = {
       if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // neutralize spreadsheet formula injection
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const head = ['Order', 'Status', 'Name', 'Email', 'Event', 'Competition', 'Style', 'Level', 'Role', 'Amount (USD)', 'Paid at'];
+    const head = ['Order', 'Status', 'Name', 'Email', 'Event', 'Event date', 'Location', 'Pass', 'Amount (USD)', 'Paid at'];
     const lines = [head.join(',')].concat(rows.map((o) => [
-      o.id, o.status, o.buyer_name, o.email, o.event_slug ? (EVENT_SLUGS[o.event_slug] || o.event_slug) : 'No specific event', o.title, o.style, o.level, o.role,
-      (o.amount_cents / 100).toFixed(2), o.paid_at ? new Date(o.paid_at).toISOString() : ''
+      o.id, o.status, o.buyer_name, o.email, o.title, o.event_date ? new Date(o.event_date).toISOString().slice(0, 10) : '', o.location || '',
+      o.pass_name || '', (o.amount_cents / 100).toFixed(2), o.paid_at ? new Date(o.paid_at).toISOString() : ''
     ].map(esc).join(',')));
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -300,7 +313,7 @@ async function fetchOrders(sp) {
   else if (ev) { params.push(ev); where.push(`c.event_slug = $${params.length}`); }
   const { rows } = await query(
     `SELECT o.id, o.status, o.buyer_name, o.email, o.amount_cents, o.paid_at, o.created_at,
-            pt.role, c.id AS competition_id, c.title, c.style, c.level, c.event_slug
+            pt.name AS pass_name, pt.role, c.id AS competition_id, c.title, c.style, c.level, c.event_slug, c.event_date, c.location
        FROM orders o JOIN pass_types pt ON pt.id = o.pass_type_id JOIN competitions c ON c.id = pt.competition_id
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY COALESCE(o.paid_at, o.created_at) DESC LIMIT 5000`, params);

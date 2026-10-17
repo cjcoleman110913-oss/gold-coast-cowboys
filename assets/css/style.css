@@ -580,5 +580,6 @@ footer{
   .pass-row .btn{ grid-column:1 / -1; justify-content:center; }
 }
 
+.pass-kind{ margin-top:2px; color:var(--sage); }
 .pass-group{ font-family:var(--mono); font-size:0.8rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--cream-dim); margin:18px 0 -6px; font-weight:400; }
 .pass-group:first-child{ margin-top:0; }

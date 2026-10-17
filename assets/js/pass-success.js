@@ -1,7 +1,6 @@
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var sid = new URLSearchParams(location.search).get('session_id');
-  var ROLE = { lead: 'Lead', follow: 'Follow', any: 'Open' };
   function line(k, v) { var p = document.createElement('p'); var b = document.createElement('strong'); b.textContent = k + ': '; p.appendChild(b); p.appendChild(document.createTextNode(v)); return p; }
   if (!sid) { $('s-title').textContent = 'No order found'; $('s-lede').textContent = 'Head back to the passes page to pick a competition.'; return; }
   var tries = 0;
@@ -11,8 +10,10 @@
         $('s-title').textContent = 'You’re in, ' + o.name.split(' ')[0] + '!';
         $('s-lede').textContent = 'Your payment went through. A receipt is on its way to ' + o.email + '.';
         var c = $('s-card'); c.textContent = '';
-        if (o.event) c.appendChild(line('Event', o.event)); c.appendChild(line('Competition', o.title + ' (' + o.level + ')'));
-        c.appendChild(line('Role', ROLE[o.role])); c.appendChild(line('Paid', '$' + (o.amountCents / 100).toFixed(2)));
+        c.appendChild(line('Event', o.title));
+        if (o.date) c.appendChild(line('Date', o.date + (o.endDate && o.endDate !== o.date ? ' to ' + o.endDate : '')));
+        if (o.location) c.appendChild(line('Location', o.location));
+        c.appendChild(line('Pass', o.passName)); c.appendChild(line('Paid', '$' + (o.amountCents / 100).toFixed(2)));
         c.hidden = false;
       } else if (o.status === 'pending' && tries++ < 10) {
         $('s-title').textContent = 'Confirming your payment…'; setTimeout(check, 2000);

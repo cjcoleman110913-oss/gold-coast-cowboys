@@ -1,4 +1,4 @@
-import { wrap, send, readJson, HttpError, EMAIL_RE, EVENT_SLUGS, origin } from '../lib/http.js';
+import { wrap, send, readJson, HttpError, EMAIL_RE, origin } from '../lib/http.js';
 import { tx, query } from '../lib/db.js';
 import { getStripe } from '../lib/stripe.js';
 import { currentPriceCents } from '../lib/passes.js';
@@ -18,11 +18,13 @@ export default wrap(async (req, res) => {
   // Atomically reserve a spot: lock the pass row so concurrent buyers can't oversell the cap.
   const order = await tx(async (db) => {
     const { rows } = await db.query(
-      `SELECT pt.*, c.title, c.style, c.level, c.event_slug, c.active
+      `SELECT pt.*, c.title, c.style, c.level, c.event_slug, c.active, c.location, c.event_date,
+              (COALESCE(c.end_date, c.event_date) < CURRENT_DATE - 1) AS past
          FROM pass_types pt JOIN competitions c ON c.id = pt.competition_id
         WHERE pt.id = $1 FOR UPDATE OF pt`, [passTypeId]);
     const pt = rows[0];
     if (!pt || !pt.active) throw new HttpError(404, 'That pass is not available.');
+    if (pt.past) throw new HttpError(410, 'This event has already happened.');
     if (pt.cap != null) {
       const { rows: [{ n }] } = await db.query(
         `SELECT count(*)::int AS n FROM orders WHERE pass_type_id = $1
@@ -38,7 +40,6 @@ export default wrap(async (req, res) => {
   });
 
   const { pt } = order;
-  const roleLabel = { lead: 'Lead', follow: 'Follow', any: 'Open' }[pt.role];
   const base = origin(req);
   try {
     const session = await getStripe().checkout.sessions.create({
@@ -50,8 +51,8 @@ export default wrap(async (req, res) => {
         price_data: {
           currency: 'usd',
           unit_amount: order.amount,
-          product_data: { name: `${pt.event_slug ? (EVENT_SLUGS[pt.event_slug] || pt.event_slug) + ': ' : ''}${pt.title} (${roleLabel})`,
-            description: `${pt.style} · ${pt.level}` }
+          product_data: { name: `${pt.title}: ${pt.name || 'Pass'}`.slice(0, 250),
+            ...(([pt.style, pt.level, pt.location].filter(Boolean).join(' · ')) ? { description: [pt.style, pt.level, pt.location].filter(Boolean).join(' · ').slice(0, 500) } : {}) }
         }
       }],
       metadata: { order_id: String(order.id) },

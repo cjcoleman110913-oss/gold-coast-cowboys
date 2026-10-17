@@ -62,3 +62,12 @@ th{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.1em; text-transf
 .toast{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--cream); color:var(--ink); padding:12px 20px; border-radius:3px; z-index:50; font-family:var(--mono); font-size:0.85rem; }
 .toast.bad{ background:#ff9b8a; }
 @media (max-width:760px){ .grid2,.filters{ grid-template-columns:1fr; } .role-row{ grid-template-columns:1fr 1fr; } .role-row strong{ grid-column:1/-1; } }
+.role-row{ grid-template-columns:2fr 1fr 1fr 1fr 1fr 1.4fr auto !important; }
+.role-row .wide{ min-width:0; }
+.remove-pass{ align-self:center; margin-top:18px; }
+.pass-add{ display:flex; gap:10px; flex-wrap:wrap; }
+.pass-add .btn{ padding:0.55em 1em; font-size:0.72rem; }
+details.more{ border:1px solid var(--line); border-radius:3px; padding:12px 16px; display:grid; gap:14px; }
+details.more summary{ cursor:pointer; font-family:var(--mono); font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--cream-dim); margin-bottom:12px; }
+.filters{ grid-template-columns:repeat(2,1fr) !important; }
+@media (max-width:900px){ .role-row{ grid-template-columns:1fr 1fr !important; } .role-row .wide{ grid-column:1/-1; } .remove-pass{ grid-column:1/-1; justify-self:start; margin-top:0; } .filters{ grid-template-columns:1fr !important; } }
