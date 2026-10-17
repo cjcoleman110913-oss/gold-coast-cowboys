@@ -181,12 +181,6 @@ h2,h3{
     linear-gradient(180deg, #050505 0%, #0A0A0A 55%, #0F0F0F 100%);
   border-bottom:1px solid var(--line);
 }
-.hero-sun{
-  position:absolute; left:50%; top:52%; transform:translate(-50%,-50%);
-  width:340px; height:340px; border-radius:50%;
-  background:radial-gradient(circle at 45% 40%, #FFFFFF, #D9D2BE 55%, #2A2A2A 100%);
-  opacity:0.35; filter:blur(1px);
-}
 .hero-horizon{
   position:absolute; left:0; right:0; bottom:0; height:46%;
   background:linear-gradient(180deg, transparent, rgba(0,0,0,0.55) 60%, var(--bg) 100%);
