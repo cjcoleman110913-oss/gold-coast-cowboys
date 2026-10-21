@@ -18,11 +18,11 @@
       } else if (o.status === 'pending' && tries++ < 10) {
         $('s-title').textContent = 'Confirming your payment…'; setTimeout(check, 2000);
       } else if (o.status === 'pending') {
-        $('s-title').textContent = 'Almost there'; $('s-lede').textContent = 'We haven’t received confirmation yet. If you were charged, you’ll get an email shortly, or contact goldcoastcowboys@gmail.com.';
+        $('s-title').textContent = 'Almost there'; $('s-lede').textContent = 'We haven’t received confirmation yet. If you were charged, you’ll get an email shortly, or contact dance@goldcoastcowboys.com.';
       } else {
-        $('s-title').textContent = 'This order isn’t active'; $('s-lede').textContent = 'Status: ' + o.status + '. Questions? Email goldcoastcowboys@gmail.com.';
+        $('s-title').textContent = 'This order isn’t active'; $('s-lede').textContent = 'Status: ' + o.status + '. Questions? Email dance@goldcoastcowboys.com.';
       }
-    }).catch(function () { $('s-title').textContent = 'We couldn’t find that order'; $('s-lede').textContent = 'Email goldcoastcowboys@gmail.com and we’ll sort it out.'; });
+    }).catch(function () { $('s-title').textContent = 'We couldn’t find that order'; $('s-lede').textContent = 'Email dance@goldcoastcowboys.com and we’ll sort it out.'; });
   }
   check();
 })();
