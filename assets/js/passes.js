@@ -31,7 +31,7 @@
   });
   $('p-eyebrow').textContent = slug ? EVENTS[slug] : 'Gold Coast Cowboys';
   $('p-title').textContent = 'Competitions';
-  $('p-lede').textContent = 'Enter a competition for your chance to win passes to Gold Coast Cowboys events.';
+  $('p-lede').textContent = 'Find an upcoming competition, pick your entry, and sign up.';
   document.title = (slug ? EVENTS[slug] + ' ' : '') + 'Competitions — Gold Coast Cowboys';
 
   function passRow(c, p) {
