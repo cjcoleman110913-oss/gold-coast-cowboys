@@ -641,3 +641,9 @@ footer{
 .manage .keep{ display:flex; align-items:center; gap:10px; margin-top:18px; font-family:var(--body); font-size:.95rem; color:var(--cream-dim); }
 .listing-card .btn.solid{ background:var(--ink); border-color:var(--ink); color:var(--cream); }
 .listing-card .btn.solid:hover{ background:#333; border-color:#333; color:var(--cream); }
+
+.banner{ border:1px solid var(--cream-dim); background:var(--bg-raise); padding:18px 22px; border-radius:4px; margin-bottom:28px; display:grid; gap:8px; }
+.banner p{ margin:0; color:var(--cream-dim); }
+.banner p:first-child{ color:var(--cream); font-family:var(--display); font-size:1.15rem; }
+.banner .btn{ justify-self:start; margin-top:6px; }
+[hidden]{ display:none !important; }

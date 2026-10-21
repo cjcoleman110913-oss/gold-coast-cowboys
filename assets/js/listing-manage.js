@@ -3,6 +3,13 @@
   var sp = new URLSearchParams(location.search);
   var id = sp.get('id'), token = sp.get('token');
   function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function banner(html, back) {
+    var b = $('m-banner'); b.textContent = '';
+    (Array.isArray(html) ? html : [html]).forEach(function (t) { b.appendChild(el('p', null, t)); });
+    if (back) { var a = el('a', 'btn', 'Back to listings'); a.href = 'partner-finder.html'; b.appendChild(a); }
+    b.hidden = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   function msg(m) { var e = $('m-msg'); e.textContent = m || ''; e.hidden = !m; }
   function api(method, body) {
     var url = '/api/listing-manage' + (method === 'GET' ? '?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token) : '');
@@ -48,12 +55,27 @@
   function decide(r, action) {
     msg('');
     if (action === 'decline' && !confirm('Decline ' + r.name + '?')) return;
-    api('POST', { action: action, requestId: r.id, keepOpen: $('m-keep').checked }).then(load).catch(function (e) { msg(e.message); });
+    var keep = $('m-keep').checked;
+    api('POST', { action: action, requestId: r.id, keepOpen: keep }).then(function (res) {
+      return load().then(function () {
+        if (action === 'accept') {
+          banner(['You accepted ' + r.name + '!', 'We emailed you both each other’s contact info. You can reach them at ' + res.email + '.', keep ? 'Your listing is still up for more people.' : 'Your listing has been taken down.'], !keep);
+        } else {
+          banner('You declined ' + r.name + '. We let them know.');
+        }
+      });
+    }).catch(function (e) { msg(e.message); });
   }
   $('m-close').onclick = function () {
     if (!confirm('Take your listing down? Anyone with a pending request won’t be able to get in touch through the site.')) return;
-    api('POST', { action: 'close' }).then(load).catch(function (e) { msg(e.message); });
+    api('POST', { action: 'close' }).then(load).then(function () { banner('Your listing has been taken down. Good luck at the event!', true); }).catch(function (e) { msg(e.message); });
   };
   if (!id || !token) { $('m-lede').textContent = 'This link isn’t valid. Use the private link from your email.'; return; }
-  load().catch(function (e) { $('m-lede').textContent = e.message; });
+  var isNew = sp.get('new') === '1';
+  load().then(function () {
+    if (isNew) {
+      banner(['Your listing is live!', 'People can now send you a request, and we’ll email you when they do. Accept or decline requests right here. Bookmark this page, because it’s your private link and you’ll need it to take your listing down once you’ve found someone.']);
+      history.replaceState(null, '', location.pathname + '?id=' + encodeURIComponent(id) + '&token=' + encodeURIComponent(token));
+    }
+  }).catch(function (e) { $('m-lede').textContent = e.message; });
 })();

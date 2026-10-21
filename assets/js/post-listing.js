@@ -23,12 +23,7 @@
     var btn = $('p-submit'); btn.disabled = true; btn.textContent = 'Posting…';
     fetch('/api/listings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'Something went wrong. Please try again.'); return j; }); })
-      .then(function (j) { form.hidden = true; $('p-done').hidden = false; $('p-link').value = j.manageUrl || ''; window.scrollTo({ top: 0, behavior: 'smooth' }); })
+      .then(function (j) { window.location.href = j.manageUrl + '&new=1'; })
       .catch(function (e) { showErr(e.message); btn.disabled = false; btn.textContent = 'Post my listing'; });
-  });
-  $('p-copy').addEventListener('click', function () {
-    var i = $('p-link'); i.select();
-    try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand('copy'); }
-    $('p-copy').textContent = 'Copied!';
   });
 })();
