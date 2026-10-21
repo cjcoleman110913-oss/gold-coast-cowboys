@@ -326,10 +326,10 @@ section{ padding:88px 0; }
 .carousel-arrow.prev{ left:16px; }
 .carousel-arrow.next{ right:16px; }
 .carousel-arrow:hover{ background:rgba(0,0,0,0.7); }
-.carousel-dots{ display:flex; justify-content:center; gap:8px; margin-top:18px; }
+.carousel-dots{ position:absolute; left:0; right:0; bottom:16px; padding-right:20px; z-index:5; display:flex; justify-content:flex-end; gap:8px; margin:0; }
 .carousel-dot{
   width:8px; height:8px; border-radius:50%; background:var(--line);
-  border:none; padding:0; cursor:pointer;
+  border:none; padding:0; cursor:pointer; background:rgba(255,255,255,0.45);
 }
 .carousel-dot.active{ background:var(--cream); }
 
