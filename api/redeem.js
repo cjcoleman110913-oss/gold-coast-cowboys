@@ -21,7 +21,6 @@ export default wrap(async (req, res) => {
   if (!wonAt) throw new HttpError(400, 'Tell us where you won the pass.');
   if (!EVENT_SLUGS[event]) throw new HttpError(400, 'Please choose which event you’re redeeming for.');
   if (!TICKET_TYPES[type]) throw new HttpError(400, 'Please choose what kind of ticket it is.');
-  if (type === 'competition_pass' && !competition) throw new HttpError(400, 'Please list which competition you’re redeeming it for.');
 
   // Light abuse protection
   const { rows: [{ mine, all }] } = await query(
@@ -31,14 +30,14 @@ export default wrap(async (req, res) => {
 
   await query(
     `INSERT INTO redemptions (name, email, won_at, event_slug, ticket_type, competition) VALUES ($1,$2,$3,$4,$5,$6)`,
-    [name, email, wonAt, event, type, type === 'competition_pass' ? competition : null]);
+    [name, email, wonAt, event, type, type === 'competition_pass' && competition ? competition : null]);
 
   await notify({
     subject: `Pass redemption: ${name} (${EVENT_SLUGS[event]})`,
     replyTo: email,
     text: [`New pass / voucher redemption`, '',
       `Name: ${name}`, `Email: ${email}`, `Event: ${EVENT_SLUGS[event]}`, `Ticket: ${TICKET_TYPES[type]}`,
-      ...(type === 'competition_pass' ? [`Competition: ${competition}`] : []),
+      ...(type === 'competition_pass' ? [`Competition: ${competition || '(not given)'}`] : []),
       `Won at: ${wonAt}`, '', 'View all redemptions in the admin dashboard.'].join('\n')
   });
 
