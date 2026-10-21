@@ -1,6 +1,7 @@
 import { wrap, send, readJson, HttpError, EMAIL_RE, EVENT_SLUGS, origin } from '../lib/http.js';
 import { query } from '../lib/db.js';
 import { sendEmail } from '../lib/notify.js';
+import { renderEmail } from '../lib/email.js';
 import { manageLink, KINDS, ROLES_NEEDED, OPEN_SQL, clean } from '../lib/listings.js';
 
 async function list(req, res) {
@@ -43,7 +44,15 @@ async function create(req, res, b) {
   const link = manageLink(origin(req), row.id);
   await sendEmail({
     to: email, subject: 'Your Gold Coast Cowboys listing is live',
-    text: `Hi ${name},\n\nYour ${kind} listing for ${EVENT_SLUGS[event]} is live on the Roommates & Partners page.\n\nThis is your private link. Use it to see who wants to connect, accept or decline requests, or take your listing down once you've found someone. Please don't share it.\n\n${link}\n\nListings come down on their own after 60 days.\n\n- Gold Coast Cowboys`
+    ...renderEmail({
+      preheader: 'People can now send you a request. Keep your private link handy.',
+      eyebrow: `${kind === 'roommate' ? 'Roommate' : 'Partner'} listing · ${EVENT_SLUGS[event]}`,
+      heading: 'Your listing is live!',
+      intro: [`Hi ${name}, your listing is up on the Roommates & Partners page. When someone sends you a request, we'll email you.`,
+        'Use your private link to accept or decline requests, or to take your listing down once you’ve found someone.'],
+      button: { label: 'Manage my listing', url: link },
+      outro: ['Please don’t share that link. It’s your login. Listings come down on their own after 60 days.']
+    })
   });
   send(res, 200, { ok: true, id: row.id, manageUrl: link });
 }
@@ -71,7 +80,15 @@ async function apply(req, res, b) {
   if (!ins.length) throw new HttpError(409, 'You already sent a request to this listing.');
   await sendEmail({
     to: l.email, subject: `${name} wants to connect on your ${EVENT_SLUGS[l.event_slug]} listing`,
-    text: `Hi ${l.name},\n\n${name} sent a request on your ${l.kind} listing for ${EVENT_SLUGS[l.event_slug]}.${message ? `\n\nTheir message: "${message}"` : ''}\n\nAccept or decline here (this is your private link):\n${manageLink(origin(req), l.id)}\n\n- Gold Coast Cowboys`
+    ...renderEmail({
+      preheader: `${name} sent you a request.`,
+      eyebrow: `${l.kind === 'roommate' ? 'Roommate' : 'Partner'} listing · ${EVENT_SLUGS[l.event_slug]}`,
+      heading: `${name} wants to connect`,
+      intro: [`Hi ${l.name}, ${name} sent a request on your listing.`],
+      quote: message,
+      button: { label: 'Accept or decline', url: manageLink(origin(req), l.id) },
+      outro: ['Their email is shared with you if you accept. This is your private link, so please don’t forward it.']
+    })
   });
   send(res, 200, { ok: true });
 }

@@ -1,6 +1,7 @@
 import { wrap, send, readJson, HttpError, EVENT_SLUGS, origin } from '../lib/http.js';
 import { query, tx } from '../lib/db.js';
 import { sendEmail } from '../lib/notify.js';
+import { renderEmail } from '../lib/email.js';
 import { tokenOk, manageLink } from '../lib/listings.js';
 
 async function load(id, token) {
@@ -42,8 +43,10 @@ export default wrap(async (req, res) => {
 
   if (b.action === 'decline') {
     await query(`UPDATE listing_requests SET status = 'declined' WHERE id = $1`, [rid]);
-    await sendEmail({ to: r.email, subject: `Update on your ${eventName} request`,
-      text: `Hi ${r.name},\n\nThanks for reaching out. ${l.name} has decided to go another direction on their ${l.kind} listing for ${eventName}. Keep an eye on the Roommates & Partners page for more listings.\n\n- Gold Coast Cowboys` });
+    await sendEmail({ to: r.email, subject: `Update on your ${eventName} request`, ...renderEmail({
+      eyebrow: eventName, heading: 'Update on your request',
+      intro: [`Hi ${r.name}, thanks for reaching out. ${l.name} has decided to go another direction on their ${l.kind} listing.`, 'There are other dancers looking too, so keep an eye on the listings.'],
+      button: { label: 'Browse listings', url: `${origin(req)}/partner-finder.html` } }) });
     return send(res, 200, { ok: true });
   }
 
@@ -57,13 +60,22 @@ export default wrap(async (req, res) => {
     await db.query(`UPDATE listing_requests SET status = 'declined' WHERE listing_id = $1 AND status = 'pending'`, [l.id]);
     return rows;
   });
-  await sendEmail({ to: r.email, subject: `${l.name} accepted your ${eventName} request!`,
-    text: `Hi ${r.name},\n\nGood news: ${l.name} accepted your request on their ${l.kind} listing for ${eventName}.\n\nReach them at ${l.email}${l.instagram ? ` (Instagram: ${l.instagram})` : ''}.\n\n- Gold Coast Cowboys`, replyTo: l.email });
-  await sendEmail({ to: l.email, subject: `You accepted ${r.name} for ${eventName}`,
-    text: `Hi ${l.name},\n\nYou accepted ${r.name}. Reach them at ${r.email}.\n\n${keepOpen ? 'Your listing is still up.' : 'Your listing has been taken down.'}\n\nManage your listing: ${manageLink(origin(req), l.id)}\n\n- Gold Coast Cowboys`, replyTo: r.email });
+  await sendEmail({ to: r.email, subject: `${l.name} accepted your ${eventName} request!`, replyTo: l.email, ...renderEmail({
+    preheader: `${l.name} said yes. Here's how to reach them.`, eyebrow: `${l.kind === 'roommate' ? 'Roommate' : 'Partner'} · ${eventName}`, heading: 'You’re connected!',
+    intro: [`Hi ${r.name}, good news: ${l.name} accepted your request. Reach out and get it planned.`],
+    details: [['Name', l.name], ['Email', l.email], ['Instagram', l.instagram]],
+    button: { label: `Email ${l.name}`, url: `mailto:${l.email}` } }) });
+  await sendEmail({ to: l.email, subject: `You accepted ${r.name} for ${eventName}`, replyTo: r.email, ...renderEmail({
+    eyebrow: `${l.kind === 'roommate' ? 'Roommate' : 'Partner'} · ${eventName}`, heading: `You accepted ${r.name}`,
+    intro: ['Here’s how to reach them. We sent them your contact info too.'],
+    details: [['Name', r.name], ['Email', r.email]],
+    button: { label: `Email ${r.name}`, url: `mailto:${r.email}` },
+    outro: [keepOpen ? 'Your listing is still up for more people.' : 'Your listing has been taken down.', `Manage your listing: ${manageLink(origin(req), l.id)}`] }) });
   for (const o of others) {
-    await sendEmail({ to: o.email, subject: `Update on your ${eventName} request`,
-      text: `Hi ${o.name},\n\nThe ${l.kind} listing you reached out to for ${eventName} has been filled. Keep an eye on the Roommates & Partners page for more listings.\n\n- Gold Coast Cowboys` });
+    await sendEmail({ to: o.email, subject: `Update on your ${eventName} request`, ...renderEmail({
+      eyebrow: eventName, heading: 'This listing has been filled',
+      intro: [`Hi ${o.name}, the ${l.kind} listing you reached out to has been filled.`, 'There are other dancers looking too, so keep an eye on the listings.'],
+      button: { label: 'Browse listings', url: `${origin(req)}/partner-finder.html` } }) });
   }
   send(res, 200, { ok: true, email: r.email });
 });

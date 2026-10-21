@@ -1,6 +1,7 @@
-import { wrap, send, readJson, HttpError, EMAIL_RE, EVENT_SLUGS, TICKET_TYPES } from '../lib/http.js';
+import { wrap, send, readJson, HttpError, EMAIL_RE, EVENT_SLUGS, TICKET_TYPES, origin } from '../lib/http.js';
 import { query } from '../lib/db.js';
 import { notify } from '../lib/notify.js';
+import { renderEmail } from '../lib/email.js';
 
 const clean = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
@@ -35,10 +36,14 @@ export default wrap(async (req, res) => {
   await notify({
     subject: `Pass redemption: ${name} (${EVENT_SLUGS[event]})`,
     replyTo: email,
-    text: [`New pass / voucher redemption`, '',
-      `Name: ${name}`, `Email: ${email}`, `Event: ${EVENT_SLUGS[event]}`, `Ticket: ${TICKET_TYPES[type]}`,
-      ...(type === 'competition_pass' ? [`Competition: ${competition || '(not given)'}`] : []),
-      `Won at: ${wonAt}`, '', 'View all redemptions in the admin dashboard.'].join('\n')
+    ...renderEmail({
+      preheader: `${name} is redeeming a ${TICKET_TYPES[type].toLowerCase()} for ${EVENT_SLUGS[event]}.`,
+      eyebrow: 'New redemption', heading: `${name} redeemed a pass`,
+      details: [['Name', name], ['Email', email], ['Event', EVENT_SLUGS[event]], ['Ticket', TICKET_TYPES[type]],
+        ['Competition', type === 'competition_pass' ? (competition || '(not given)') : ''], ['Won at', wonAt]],
+      button: { label: 'Open the dashboard', url: `${origin(req)}/admin/index.html` },
+      outro: ['Reply to this email to reach them directly.']
+    })
   });
 
   send(res, 200, { ok: true });

@@ -415,6 +415,14 @@ test('listings: post, apply, accept/decline, close, expiry, admin remove, privac
   setMailer(null);
 });
 
+test('emails: branded HTML escapes user input and keeps a plain-text copy', async () => {
+  const { renderEmail } = await import('../lib/email.js');
+  const e = renderEmail({ heading: 'Hi <script>', intro: ['x'], quote: '<img src=x onerror=alert(1)>', details: [['Name', '"><b>Z</b>']], button: { label: 'Go', url: 'https://example.com/?a=1&b=2' } });
+  assert.ok(!e.html.includes('<script>') && !e.html.includes('<img src=x') && !e.html.includes('<b>Z</b>'));
+  assert.ok(e.html.includes('&lt;script&gt;') && e.html.includes('a=1&amp;b=2'));
+  assert.ok(e.text.includes('Go: https://example.com/?a=1&b=2'));
+});
+
 test('logout clears session', async () => {
   const c = new Client();
   await c.req('POST', '/api/admin/login', { email: 'cj@x.com', password: PW });
