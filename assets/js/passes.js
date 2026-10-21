@@ -20,9 +20,10 @@
   }
 
   var tabs = $('p-events');
-  var allTab = el('a', 'filter-btn' + (!slug ? ' active' : ''), 'All Events');
+  var allTab = el('a', 'filter-btn' + (!slug ? ' active' : ''), 'All Competitions');
   allTab.href = 'passes.html';
   tabs.appendChild(allTab);
+  if (!slug) tabs.parentNode.hidden = true; // event tabs only matter when viewing a single event's competitions
   Object.keys(EVENTS).forEach(function (s) {
     var b = el('a', 'filter-btn' + (s === slug ? ' active' : ''), EVENTS[s]);
     b.href = 'passes.html?event=' + s;
@@ -30,21 +31,21 @@
   });
   $('p-eyebrow').textContent = slug ? EVENTS[slug] : 'Gold Coast Cowboys';
   $('p-title').textContent = 'Competitions';
-  $('p-lede').textContent = 'Pick a competition and lock in your spot. Event weekend tickets are sold separately.';
+  $('p-lede').textContent = 'Enter a competition for your chance to win passes to Gold Coast Cowboys events.';
   document.title = (slug ? EVENTS[slug] + ' ' : '') + 'Competitions — Gold Coast Cowboys';
 
   function passRow(c, p) {
     var row = el('div', 'pass-row');
     var left = el('div', 'pass-role');
     left.appendChild(el('strong', null, p.name));
-    if (!p.soldOut && p.remaining != null && p.remaining <= 5) left.appendChild(el('small', 'low', 'Only ' + p.remaining + ' left'));
+    if (!p.soldOut && p.remaining != null && p.remaining <= 5) left.appendChild(el('small', 'low', 'Only ' + p.remaining + ' spots left'));
     var price = el('div', 'pass-price');
     price.appendChild(el('span', 'now', money(p.currentPriceCents)));
     if (p.earlyActive) {
       price.appendChild(el('s', null, money(p.priceCents)));
       price.appendChild(el('small', 'early', 'Early-bird until ' + when(p.earlyUntil)));
     }
-    var btn = el('button', 'btn solid', p.soldOut ? 'Sold out' : 'Buy pass');
+    var btn = el('button', 'btn solid', p.soldOut ? 'Full' : 'Enter');
     btn.type = 'button';
     if (p.soldOut) btn.disabled = true; else btn.addEventListener('click', function () { openBuy(c, p); });
     row.appendChild(left); row.appendChild(price); row.appendChild(btn);
@@ -62,6 +63,7 @@
       var kind = [c.style, c.level].filter(Boolean).join(' · ');
       if (kind) h.appendChild(el('p', 'pass-meta pass-kind', kind));
       card.appendChild(h);
+      if (c.prize) { var pz = el('p', 'pass-prize'); pz.appendChild(el('strong', null, 'Prize: ')); pz.appendChild(document.createTextNode(c.prize)); card.appendChild(pz); }
       if (c.description) card.appendChild(el('p', 'pass-desc', c.description));
       c.passes.forEach(function (p) { card.appendChild(passRow(c, p)); });
       box.appendChild(card);

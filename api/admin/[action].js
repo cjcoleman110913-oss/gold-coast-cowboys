@@ -180,14 +180,15 @@ const actions = {
     const level = String(b.level || '').trim().slice(0, 60) || null;
     const location = String(b.location || '').trim().slice(0, 200) || null;
     const description = String(b.description || '').trim().slice(0, 2000) || null;
+    const prize = String(b.prize || '').trim().slice(0, 300) || null;
     if (!title) throw new HttpError(400, 'Add a title.');
     const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(new Date(v + 'T00:00:00Z').getTime());
     const eventDate = String(b.date || '');
-    if (!isDate(eventDate)) throw new HttpError(400, 'Choose the event date.');
+    if (!isDate(eventDate)) throw new HttpError(400, 'Choose the competition date.');
     const endDate = String(b.endDate || '') || null;
     if (endDate && (!isDate(endDate) || endDate < eventDate)) throw new HttpError(400, 'The end date must be on or after the start date.');
-    if (!Array.isArray(b.passes) || !b.passes.length) throw new HttpError(400, 'Add at least one pass.');
-    if (b.passes.length > 30) throw new HttpError(400, 'That is too many passes.');
+    if (!Array.isArray(b.passes) || !b.passes.length) throw new HttpError(400, 'Add at least one entry option.');
+    if (b.passes.length > 30) throw new HttpError(400, 'That is too many entry options.');
 
     const passes = [];
     const names = new Set();
@@ -195,8 +196,8 @@ const actions = {
       const role = p.role ? String(p.role) : null;
       if (role && !ROLES.includes(role)) throw new HttpError(400, 'Bad role.');
       const name = String(p.name || '').trim().slice(0, 80) || (role === 'lead' ? 'Lead' : role === 'follow' ? 'Follow' : '');
-      if (!name) throw new HttpError(400, 'Give every pass a name.');
-      if (names.has(name.toLowerCase())) throw new HttpError(400, `Two passes are named “${name}”. Names must be different.`);
+      if (!name) throw new HttpError(400, 'Give every entry option a name.');
+      if (names.has(name.toLowerCase())) throw new HttpError(400, `Two entry options are named “${name}”. Names must be different.`);
       names.add(name.toLowerCase());
       const price = dollarsToCents(p.price);
       if (!Number.isFinite(price) || price < 50) throw new HttpError(400, `${name}: price must be at least $0.50.`);
@@ -221,21 +222,21 @@ const actions = {
       if (cid) {
         const r = await db.query(
           `UPDATE competitions SET event_slug=$2, title=$3, style=$4, level=$5, description=$6, active=$7,
-                  event_date=$8, end_date=$9, location=$10 WHERE id=$1 RETURNING id`,
-          [cid, eventSlug, title, style, level, description, b.active !== false, eventDate, endDate, location]);
-        if (!r.rows[0]) throw new HttpError(404, 'Event not found.');
+                  event_date=$8, end_date=$9, location=$10, prize=$11 WHERE id=$1 RETURNING id`,
+          [cid, eventSlug, title, style, level, description, b.active !== false, eventDate, endDate, location, prize]);
+        if (!r.rows[0]) throw new HttpError(404, 'Competition not found.');
       } else {
         const r = await db.query(
-          `INSERT INTO competitions (event_slug,title,style,level,description,active,event_date,end_date,location,created_by)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-          [eventSlug, title, style, level, description, b.active !== false, eventDate, endDate, location, admin.id]);
+          `INSERT INTO competitions (event_slug,title,style,level,description,active,event_date,end_date,location,created_by,prize)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+          [eventSlug, title, style, level, description, b.active !== false, eventDate, endDate, location, admin.id, prize]);
         cid = r.rows[0].id;
       }
       const { rows: existing } = await db.query(
         `SELECT pt.id, pt.name, (SELECT count(*)::int FROM orders o WHERE o.pass_type_id = pt.id AND (o.status = 'paid' OR (o.status = 'pending' AND o.expires_at > now()))) AS used
            FROM pass_types pt WHERE competition_id = $1 FOR UPDATE`, [cid]);
       for (const p of passes) {
-        if (p.id && !existing.find((e) => e.id === p.id)) throw new HttpError(400, 'A pass on this form no longer exists. Reload and try again.');
+        if (p.id && !existing.find((e) => e.id === p.id)) throw new HttpError(400, 'An entry option on this form no longer exists. Reload and try again.');
       }
       for (const old of existing) {
         if (!passes.find((p) => p.id === old.id)) {
@@ -267,7 +268,7 @@ const actions = {
     const id = Number(b.id);
     const { rows: [{ n }] } = await query(
       `SELECT count(*)::int AS n FROM orders o JOIN pass_types pt ON pt.id = o.pass_type_id WHERE pt.competition_id = $1`, [id]);
-    if (n > 0) throw new HttpError(409, 'This event has orders, so it can’t be deleted. Hide it instead.');
+    if (n > 0) throw new HttpError(409, 'This competition has entries, so it can’t be deleted. Hide it instead.');
     await query('DELETE FROM competitions WHERE id = $1', [id]);
     send(res, 200, { ok: true });
   },
@@ -326,7 +327,7 @@ const actions = {
       if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // neutralize spreadsheet formula injection
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const head = ['Order', 'Status', 'Name', 'Email', 'Event', 'Event date', 'Location', 'Pass', 'Amount (USD)', 'Paid at'];
+    const head = ['Order', 'Status', 'Name', 'Email', 'Event', 'Event date', 'Location', 'Entry', 'Amount (USD)', 'Paid at'];
     const lines = [head.join(',')].concat(rows.map((o) => [
       o.id, o.status, o.buyer_name, o.email, o.title, o.event_date ? new Date(o.event_date).toISOString().slice(0, 10) : '', o.location || '',
       o.pass_name || '', (o.amount_cents / 100).toFixed(2), o.paid_at ? new Date(o.paid_at).toISOString() : ''

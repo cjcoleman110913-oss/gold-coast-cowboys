@@ -91,7 +91,7 @@ let compId, leadId, followId;
 const future = (d) => new Date(Date.now() + d * 864e5).toISOString();
 
 test('competitions: validation and create', async () => {
-  const base = { eventSlug: 'boots-on-the-coast', title: 'Novice Jack & Jill', date: '2099-05-27', endDate: '2099-05-30', location: 'Irvine, CA', style: 'Jack & Jill', level: 'Novice',
+  const base = { eventSlug: 'boots-on-the-coast', title: 'Novice Jack & Jill', date: '2099-05-27', endDate: '2099-05-30', location: 'Irvine, CA', style: 'Jack & Jill', level: 'Novice', prize: 'Full weekend pass to Boots on the Coast',
     passes: [{ role: 'lead', price: 60, cap: 2, earlyPrice: 45, earlyUntil: future(10) }, { role: 'follow', price: 60, cap: 3 }] };
   assert.equal((await owner.req('POST', '/api/admin/competition-save', { ...base, eventSlug: 'nope' })).status, 400);
   assert.equal((await owner.req('POST', '/api/admin/competition-save', { ...base, title: '' })).status, 400);
@@ -109,6 +109,7 @@ test('competitions: validation and create', async () => {
   compId = r.json.id;
   const pub = await new Client().req('GET', '/api/passes?event=boots-on-the-coast');
   assert.equal(pub.json.competitions.length, 1);
+  assert.equal(pub.json.competitions[0].prize, 'Full weekend pass to Boots on the Coast');
   const lead = pub.json.competitions[0].passes.find((p) => p.role === 'lead');
   leadId = lead.id; followId = pub.json.competitions[0].passes.find((p) => p.role === 'follow').id;
   assert.equal(lead.currentPriceCents, 4500); assert.equal(lead.earlyActive, true);
@@ -233,7 +234,7 @@ test('buyers list, filter and CSV (formula-injection safe)', async () => {
   assert.ok(paid.json.orders.every((o) => ['paid', 'refunded'].includes(o.status)));
   const csv = await owner.req('GET', '/api/admin/orders-csv?status=all');
   assert.match(csv.headers.get('content-type'), /text\/csv/);
-  assert.ok(csv.text.split('\n')[0].startsWith('Order,Status,Name,Email,Event,Event date,Location,Pass'));
+  assert.ok(csv.text.split('\n')[0].startsWith('Order,Status,Name,Email,Event,Event date,Location,Entry'));
   assert.ok(!/(^|,)=HYPERLINK/.test(csv.text) && csv.text.includes("'=HYPERLINK"));
   assert.equal((await new Client().req('GET', '/api/admin/orders-csv')).status, 401);
 });

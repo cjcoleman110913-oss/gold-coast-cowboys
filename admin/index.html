@@ -14,8 +14,8 @@
   <div class="admin-bar-inner">
     <a class="admin-brand" href="index.html"><img src="../assets/img/gcc-logo.png?v=2" alt=""><span>GCC ADMIN</span></a>
     <nav class="admin-tabs" id="tabs">
-      <button data-tab="competitions" class="active">Events</button>
-      <button data-tab="buyers">Buyers</button>
+      <button data-tab="competitions" class="active">Competitions</button>
+      <button data-tab="buyers">Entrants</button>
       <button data-tab="redemptions">Redemptions</button>
       <button data-tab="team">Team</button>
     </nav>
@@ -26,25 +26,26 @@
   <div id="toast" class="toast" role="status" hidden></div>
 
   <section id="tab-competitions" class="tab">
-    <div class="tab-head"><h1>Events</h1><button class="btn solid" id="new-comp">+ New event</button></div>
+    <div class="tab-head"><h1>Competitions</h1><button class="btn solid" id="new-comp">+ New competition</button></div>
     <form id="comp-form" class="panel" hidden novalidate>
-      <h2 id="form-title">New event</h2>
-      <label>Title<input name="title" required maxlength="120" placeholder="e.g. Summer Social Weekend"></label>
+      <h2 id="form-title">New competition</h2>
+      <label>Title<input name="title" required maxlength="120" placeholder="e.g. Friday Night Bar Comp"></label>
       <div class="grid2">
-        <label>Start date<input name="date" type="date" required></label>
-        <label>End date <small>(optional, for multi-day events)</small><input name="endDate" type="date"></label>
+        <label>Date<input name="date" type="date" required></label>
+        <label>End date <small>(optional, if it runs more than one day)</small><input name="endDate" type="date"></label>
       </div>
       <label>Location<input name="location" maxlength="200" placeholder="City, venue (leave blank if TBD)"></label>
+      <label>Prize <small>(optional, shown on the public page)</small><input name="prize" maxlength="300" placeholder="e.g. Full weekend pass to Boots on the Coast"></label>
       <label>Description <small>(optional)</small><textarea name="description" rows="3" maxlength="2000" placeholder="Anything dancers should know"></textarea></label>
       <fieldset class="roles">
-        <legend>Passes</legend>
+        <legend>Entries</legend>
         <div id="role-rows"></div>
         <div class="pass-add">
-          <button type="button" class="btn" id="add-leadfollow">+ Add a Lead &amp; Follow pass</button>
-          <button type="button" class="btn" id="add-linedance">+ Add a Line Dance pass</button>
+          <button type="button" class="btn" id="add-leadfollow">+ Add a Lead &amp; Follow entry</button>
+          <button type="button" class="btn" id="add-linedance">+ Add a Line Dance entry</button>
           <button type="button" class="btn" id="add-pass">+ Other</button>
         </div>
-        <p class="hint">Pick a pass type above, or choose Other and name it anything you like (General Admission, VIP, Spectator). Leave a limit blank for unlimited. Add an early-bird price and deadline to discount a pass until that date. Passes marked Lead or Follow just help keep the two roles balanced in your lists.</p>
+        <p class="hint">Pick an entry type above, or choose Other and name it anything you like. Each one is something dancers pay to enter. Leave a limit blank for unlimited. Add an early-bird price and deadline to discount an entry until that date. Entries marked Lead or Follow just help keep the two roles balanced in your lists.</p>
       </fieldset>
       <details class="more">
         <summary>More options</summary>
@@ -52,25 +53,25 @@
           <label>Style <small>(optional)</small><input name="style" maxlength="60" placeholder="e.g. Jack &amp; Jill, Strictly"></label>
           <label>Level / division <small>(optional)</small><input name="level" maxlength="60" placeholder="e.g. Novice, Open"></label>
         </div>
-        <label>Show on a GCC event page <small>(optional)</small><select name="eventSlug" id="f-event"></select></label>
-        <p class="hint">Every event appears on the main Passes page. Pick a GCC event here to also list it on that event's page.</p>
+        <label>Also show on a GCC event page <small>(optional)</small><select name="eventSlug" id="f-event"></select></label>
+        <p class="hint">Every competition appears on the main Competitions page. Pick a GCC event here to also list it on that event's page.</p>
       </details>
       <label class="radio"><input type="checkbox" name="active" checked> Visible on the website</label>
       <p class="form-error" id="form-err" role="alert" hidden></p>
-      <div class="form-actions"><button type="button" class="btn" id="cancel-comp">Cancel</button><button type="submit" class="btn solid">Save event</button></div>
+      <div class="form-actions"><button type="button" class="btn" id="cancel-comp">Cancel</button><button type="submit" class="btn solid">Save competition</button></div>
     </form>
     <div id="comp-list"></div>
   </section>
 
   <section id="tab-buyers" class="tab" hidden>
-    <div class="tab-head"><h1>Buyers</h1><a class="btn" id="csv-link" href="#">Download CSV</a></div>
+    <div class="tab-head"><h1>Entrants</h1><a class="btn" id="csv-link" href="#">Download CSV</a></div>
     <div class="filters">
-      <label>Event<select id="b-comp"></select></label>
+      <label>Competition<select id="b-comp"></select></label>
       <label>Show<select id="b-status"><option value="">Paid &amp; refunded</option><option value="paid">Paid only</option><option value="refunded">Refunded only</option><option value="pending">Pending checkouts</option><option value="all">Everything</option></select></label>
     </div>
     <p id="b-summary" class="hint"></p>
-    <div class="table-wrap"><table id="b-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Event</th><th>Pass</th><th>Paid</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-    <p class="hint">To refund someone, issue the refund in your Stripe dashboard. It will show up here as “refunded” automatically and free up their spot.</p>
+    <div class="table-wrap"><table id="b-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Competition</th><th>Entry</th><th>Paid</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    <p class="hint">To refund someone, issue the refund in your Stripe dashboard. It will show up here as “refunded” automatically and free up their spot. If someone wins a pass to an event, they submit it through the Redemptions form.</p>
   </section>
 
   <section id="tab-redemptions" class="tab" hidden>

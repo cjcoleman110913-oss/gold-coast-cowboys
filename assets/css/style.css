@@ -621,3 +621,5 @@ footer{
 .redeem-form .hp{ position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
 .redeem-form .btn{ justify-self:start; }
 .redeem-done{ max-width:560px; margin:0 auto; text-align:center; }
+
+.pass-prize{ color:var(--cream); margin:14px 0 0; }

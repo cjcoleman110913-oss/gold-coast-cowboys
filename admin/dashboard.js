@@ -46,7 +46,7 @@ function showTab(name) {
 async function loadEvents() {
   try { events = (await api('competitions')).competitions; } catch (e) { return fail(e); }
   const list = $('comp-list');
-  if (!events.length) { list.replaceChildren(el('p', { class: 'empty' }, 'No events yet. Click “New event” to add the first one.')); return; }
+  if (!events.length) { list.replaceChildren(el('p', { class: 'empty' }, 'No competitions yet. Click “New competition” to add the first one.')); return; }
   list.replaceChildren(...events.map(eventCard));
 }
 
@@ -66,10 +66,11 @@ function eventCard(c) {
         el('p', { class: 'meta' }, meta)),
       el('div', { class: 'comp-actions' },
         el('button', { class: 'btn', onclick: () => openForm(c) }, 'Edit'),
-        el('button', { class: 'btn', onclick: () => viewBuyers(c) }, 'Buyers'),
+        el('button', { class: 'btn', onclick: () => viewBuyers(c) }, 'Entrants'),
         el('button', { class: 'btn danger', onclick: () => del(c) }, 'Delete'))),
+    c.prize ? el('p', { class: 'desc' }, el('strong', {}, 'Prize: '), c.prize) : null,
     c.description ? el('p', { class: 'desc' }, c.description) : null,
-    el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, ...['Pass', 'Price', 'Sales', 'Limit'].map((h) => el('th', {}, h)))), el('tbody', {}, rows)));
+    el('table', { class: 'mini' }, el('thead', {}, el('tr', {}, ...['Entry', 'Price', 'Entries', 'Limit'].map((h) => el('th', {}, h)))), el('tbody', {}, rows)));
 }
 
 async function del(c) {
@@ -81,7 +82,7 @@ async function del(c) {
 // ---------- event form ----------
 function passRow(p = {}) {
   const row = el('div', { class: 'role-row', 'data-id': p.id || '' },
-    el('label', { class: 'wide' }, 'Pass name', el('input', { name: 'name', required: true, maxlength: '80', value: p.name || '', placeholder: 'e.g. General Admission' })),
+    el('label', { class: 'wide' }, 'Entry name', el('input', { name: 'name', required: true, maxlength: '80', value: p.name || '', placeholder: 'e.g. Jack & Jill Entry' })),
     el('label', {}, 'Role', (() => {
       const s = el('select', { name: 'role' }, el('option', { value: '' }, 'None'), el('option', { value: 'lead' }, 'Lead'), el('option', { value: 'follow' }, 'Follow'));
       s.value = p.role || ''; return s;
@@ -98,11 +99,11 @@ const form = $('comp-form');
 let editingId = null;
 function openForm(c) {
   editingId = c?.id || null;
-  $('form-title').textContent = c ? 'Edit event' : 'New event';
+  $('form-title').textContent = c ? 'Edit competition' : 'New competition';
   form.reset(); $('form-err').hidden = true;
   const f = form.elements;
   f.title.value = c?.title || ''; f.date.value = c?.date || ''; f.endDate.value = c?.endDate || '';
-  f.location.value = c?.location || ''; f.description.value = c?.description || '';
+  f.location.value = c?.location || ''; f.prize.value = c?.prize || ''; f.description.value = c?.description || '';
   f.style.value = c?.style || ''; f.level.value = c?.level || ''; f.eventSlug.value = c?.eventSlug || '';
   f.active.checked = c ? c.active : true;
   form.querySelector('details.more').open = !!(c && (c.style || c.level || c.eventSlug));
@@ -116,12 +117,12 @@ $('add-pass').onclick = () => {
 };
 $('add-linedance').onclick = () => {
   const have = [...document.querySelectorAll('.role-row [name=name]')].map((i) => i.value.trim().toLowerCase());
-  if (have.includes('line dance')) return toast('There is already a Line Dance pass.', true);
+  if (have.includes('line dance')) return toast('There is already a Line Dance entry.', true);
   const row = passRow({ name: 'Line Dance' }); $('role-rows').append(row); row.querySelector('[name=price]').focus();
 };
 $('add-leadfollow').onclick = () => {
   const have = [...document.querySelectorAll('.role-row [name=role]')].map((s) => s.value);
-  if (have.includes('lead') && have.includes('follow')) return toast('Lead and Follow passes are already added.', true);
+  if (have.includes('lead') && have.includes('follow')) return toast('Lead and Follow entries are already added.', true);
   if (!have.includes('lead')) $('role-rows').append(passRow({ name: 'Lead', role: 'lead' }));
   if (!have.includes('follow')) $('role-rows').append(passRow({ name: 'Follow', role: 'follow' }));
 };
@@ -134,10 +135,10 @@ form.addEventListener('submit', async (e) => {
       earlyUntil: g('earlyUntil') ? new Date(g('earlyUntil')).toISOString() : '' };
   });
   const f = form.elements;
-  if (!passes.length) { err.textContent = 'Add at least one pass using the buttons above.'; err.hidden = false; return; }
+  if (!passes.length) { err.textContent = 'Add at least one entry using the buttons above.'; err.hidden = false; return; }
   try {
     await api('competition-save', { method: 'POST', body: {
-      id: editingId, title: f.title.value, date: f.date.value, endDate: f.endDate.value, location: f.location.value,
+      id: editingId, title: f.title.value, date: f.date.value, endDate: f.endDate.value, location: f.location.value, prize: f.prize.value,
       description: f.description.value, style: f.style.value, level: f.level.value, eventSlug: f.eventSlug.value,
       active: f.active.checked, passes } });
     form.hidden = true; toast('Saved.'); await loadEvents();
@@ -148,7 +149,7 @@ form.addEventListener('submit', async (e) => {
 function viewBuyers(c) { showTab('buyers'); fillEvents(); $('b-comp').value = String(c.id); loadBuyers(); }
 function fillEvents() {
   const cur = $('b-comp').value;
-  $('b-comp').replaceChildren(el('option', { value: '' }, 'All events'), ...events.map((c) => el('option', { value: c.id }, c.title)));
+  $('b-comp').replaceChildren(el('option', { value: '' }, 'All competitions'), ...events.map((c) => el('option', { value: c.id }, c.title)));
   $('b-comp').value = cur;
 }
 $('b-comp').addEventListener('change', loadBuyers);
@@ -171,7 +172,7 @@ async function loadBuyers() {
       el('td', {}, fmt(o.paid_at || o.created_at)), el('td', {}, o.buyer_name), el('td', {}, el('a', { href: 'mailto:' + o.email }, o.email)),
       el('td', {}, o.title), el('td', {}, o.pass_name || ''), el('td', {}, money(o.amount_cents)),
       el('td', {}, el('span', { class: 'status ' + o.status }, o.status)))));
-    if (!orders.length) $('b-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No buyers match yet.')));
+    if (!orders.length) $('b-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No entrants match yet.')));
   } catch (e) { fail(e); }
 }
 
