@@ -298,6 +298,33 @@ test('migration: databases from earlier versions are upgraded', async () => {
   assert.equal((await old.query('SELECT count(*)::int n FROM pass_types')).rows[0].n, 4);
 });
 
+test('redemption form: validates, stores, admin lists and marks handled, CSV safe', async () => {
+  const anon = new Client();
+  const ok = { name: 'Dana Dancer', email: 'Dana@Example.com', wonAt: 'Instagram giveaway', event: 'boots-on-the-coast', ticketType: 'full_weekend' };
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, name: '' })).status, 400);
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, email: 'nope' })).status, 400);
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, wonAt: '' })).status, 400);
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, event: 'other' })).status, 400);
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, ticketType: 'vip' })).status, 400);
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, ticketType: 'competition_pass' })).status, 400); // needs a competition
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, website: 'http://spam' })).status, 200); // honeypot: pretend success, store nothing
+  assert.equal((await anon.req('GET', '/api/redeem')).status, 405);
+  assert.equal((await anon.req('GET', '/api/admin/redemptions')).status, 401);
+  assert.equal((await anon.req('POST', '/api/redeem', ok)).status, 200);
+  assert.equal((await anon.req('POST', '/api/redeem', { ...ok, email: 'cj@example.com', name: '=HYPERLINK("x")', event: 'tails-california', ticketType: 'competition_pass', competition: 'Novice J&J' })).status, 200);
+  let r = await owner.req('GET', '/api/admin/redemptions?status=new');
+  assert.equal(r.json.redemptions.length, 2);
+  const first = r.json.redemptions.find((x) => x.email === 'dana@example.com');
+  assert.equal(first.competition, null);
+  assert.equal(r.json.redemptions.find((x) => x.email === 'cj@example.com').competition, 'Novice J&J');
+  assert.equal((await owner.req('POST', '/api/admin/redemption-update', { id: first.id, status: 'done' })).status, 200);
+  assert.equal((await owner.req('GET', '/api/admin/redemptions?status=new')).json.redemptions.length, 1);
+  assert.equal((await owner.req('GET', '/api/admin/redemptions?status=done')).json.redemptions.length, 1);
+  const csv = await owner.req('GET', '/api/admin/redemptions-csv?status=all');
+  assert.ok(csv.text.startsWith('ID,Submitted,Status,Name,Email,Event,Ticket,Competition,Won at'));
+  assert.ok(csv.text.includes("'=HYPERLINK"));
+});
+
 test('logout clears session', async () => {
   const c = new Client();
   await c.req('POST', '/api/admin/login', { email: 'cj@x.com', password: PW });

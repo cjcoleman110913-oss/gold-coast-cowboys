@@ -44,7 +44,8 @@ export async function startServer({ port = 0 } = {}) {
     '/api/passes': (await import('../api/passes.js')).default,
     '/api/checkout': (await import('../api/checkout.js')).default,
     '/api/webhook': (await import('../api/webhook.js')).default,
-    '/api/order-status': (await import('../api/order-status.js')).default
+    '/api/order-status': (await import('../api/order-status.js')).default,
+    '/api/redeem': (await import('../api/redeem.js')).default
   };
   const adminHandler = (await import('../api/admin/[action].js')).default;
 

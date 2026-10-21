@@ -16,6 +16,7 @@
     <nav class="admin-tabs" id="tabs">
       <button data-tab="competitions" class="active">Events</button>
       <button data-tab="buyers">Buyers</button>
+      <button data-tab="redemptions">Redemptions</button>
       <button data-tab="team">Team</button>
     </nav>
     <div class="admin-user"><span id="who"></span> <button class="link-btn" id="logout">Log out</button></div>
@@ -70,6 +71,16 @@
     <p id="b-summary" class="hint"></p>
     <div class="table-wrap"><table id="b-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Event</th><th>Pass</th><th>Paid</th><th>Status</th></tr></thead><tbody></tbody></table></div>
     <p class="hint">To refund someone, issue the refund in your Stripe dashboard. It will show up here as “refunded” automatically and free up their spot.</p>
+  </section>
+
+  <section id="tab-redemptions" class="tab" hidden>
+    <div class="tab-head"><h1>Redemptions</h1><a class="btn" id="r-csv" href="#">Download CSV</a></div>
+    <div class="filters">
+      <label>Show<select id="r-status"><option value="new">New (not handled yet)</option><option value="done">Handled</option><option value="all">Everything</option></select></label>
+    </div>
+    <p id="r-summary" class="hint"></p>
+    <div class="table-wrap"><table id="r-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Event</th><th>Ticket</th><th>Competition</th><th>Won at</th><th></th></tr></thead><tbody></tbody></table></div>
+    <p class="hint">When you’ve set someone up with their pass, click “Mark handled” so it drops off the New list.</p>
   </section>
 
   <section id="tab-team" class="tab" hidden>

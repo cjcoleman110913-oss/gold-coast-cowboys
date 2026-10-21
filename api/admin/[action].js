@@ -1,4 +1,4 @@
-import { wrap, send, readJson, HttpError, EMAIL_RE, EVENT_SLUGS, origin } from '../../lib/http.js';
+import { wrap, send, readJson, HttpError, EMAIL_RE, EVENT_SLUGS, TICKET_TYPES, origin } from '../../lib/http.js';
 import { query, tx } from '../../lib/db.js';
 import {
   hashPassword, verifyPassword, checkPasswordStrength, sha256, newToken,
@@ -279,6 +279,44 @@ const actions = {
     send(res, 200, { orders: await fetchOrders(url(req).searchParams) });
   },
 
+  // ---------- pass / voucher redemptions ----------
+  async redemptions(req, res) {
+    need(req, 'GET');
+    await requireAdmin(req);
+    send(res, 200, { redemptions: await fetchRedemptions(url(req).searchParams) });
+  },
+
+  async 'redemption-update'(req, res) {
+    need(req, 'POST');
+    await requireAdmin(req);
+    const b = await readJson(req);
+    const id = Number(b.id);
+    if (!Number.isInteger(id) || !['new', 'done'].includes(b.status)) throw new HttpError(400, 'Invalid request.');
+    const { rows } = await query('UPDATE redemptions SET status = $1 WHERE id = $2 RETURNING id', [b.status, id]);
+    if (!rows.length) throw new HttpError(404, 'Not found');
+    send(res, 200, { ok: true });
+  },
+
+  async 'redemptions-csv'(req, res) {
+    need(req, 'GET');
+    await requireAdmin(req);
+    const rows = await fetchRedemptions(url(req).searchParams);
+    const esc = (v) => {
+      let s = String(v ?? '');
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const head = ['ID', 'Submitted', 'Status', 'Name', 'Email', 'Event', 'Ticket', 'Competition', 'Won at'];
+    const lines = [head.join(',')].concat(rows.map((r) => [
+      r.id, new Date(r.created_at).toISOString(), r.status, r.name, r.email, EVENT_SLUGS[r.event_slug] || r.event_slug,
+      TICKET_TYPES[r.ticket_type] || r.ticket_type, r.competition || '', r.won_at
+    ].map(esc).join(',')));
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="gcc-redemptions.csv"');
+    res.end(lines.join('\n'));
+  },
+
   async 'orders-csv'(req, res) {
     need(req, 'GET');
     await requireAdmin(req);
@@ -299,6 +337,13 @@ const actions = {
     res.end(lines.join('\n'));
   }
 };
+
+async function fetchRedemptions(sp) {
+  const status = sp.get('status');
+  const where = status === 'all' ? '' : `WHERE status = '${status === 'done' ? 'done' : 'new'}'`;
+  const { rows } = await query(`SELECT * FROM redemptions ${where} ORDER BY created_at DESC LIMIT 5000`);
+  return rows;
+}
 
 async function fetchOrders(sp) {
   const params = [];

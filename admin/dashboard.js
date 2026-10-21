@@ -38,6 +38,7 @@ function showTab(name) {
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== 'tab-' + name; });
   if (name === 'buyers') loadBuyers();
+  if (name === 'redemptions') loadRedemptions();
   if (name === 'team') loadTeam();
 }
 
@@ -171,6 +172,26 @@ async function loadBuyers() {
       el('td', {}, o.title), el('td', {}, o.pass_name || ''), el('td', {}, money(o.amount_cents)),
       el('td', {}, el('span', { class: 'status ' + o.status }, o.status)))));
     if (!orders.length) $('b-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No buyers match yet.')));
+  } catch (e) { fail(e); }
+}
+
+// ---------- redemptions ----------
+const TICKETS = { full_weekend: 'Full weekend', day_pass: 'Day pass', competition_pass: 'Competition pass' };
+$('r-status').addEventListener('change', loadRedemptions);
+async function loadRedemptions() {
+  try {
+    const q = { status: $('r-status').value };
+    const { redemptions } = await api('redemptions', { query: q });
+    $('r-csv').href = '/api/admin/redemptions-csv?' + new URLSearchParams(q);
+    $('r-summary').textContent = `${redemptions.length} shown`;
+    const rows = redemptions.map((r) => el('tr', {},
+      el('td', {}, fmt(r.created_at)), el('td', {}, r.name), el('td', {}, el('a', { href: 'mailto:' + r.email }, r.email)),
+      el('td', {}, pages[r.event_slug] || r.event_slug), el('td', {}, TICKETS[r.ticket_type] || r.ticket_type),
+      el('td', {}, r.competition || ''), el('td', {}, r.won_at),
+      el('td', {}, el('button', { class: 'link-btn', onclick: async () => {
+        try { await api('redemption-update', { method: 'POST', body: { id: r.id, status: r.status === 'done' ? 'new' : 'done' } }); loadRedemptions(); } catch (e) { fail(e); }
+      } }, r.status === 'done' ? 'Mark new' : 'Mark handled'))));
+    $('r-table').tBodies[0].replaceChildren(...(rows.length ? rows : [el('tr', {}, el('td', { colspan: 8, class: 'empty' }, 'Nothing here yet.'))]));
   } catch (e) { fail(e); }
 }
 
