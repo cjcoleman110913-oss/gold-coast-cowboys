@@ -228,7 +228,7 @@ section{ padding:88px 0; }
 .ticket-main{
   flex:1; min-width:0; padding:28px 30px; display:flex; align-items:center; gap:24px;
 }
-.ticket-logo{ width:96px; height:96px; flex-shrink:0; }
+.ticket-logo{ width:96px; height:96px; flex-shrink:0; object-fit:contain; }
 .ticket-info{ display:flex; flex-direction:column; gap:6px; min-width:0; }
 .ticket-info h3{ color:var(--ink); font-size:1.5rem; margin:0; line-height:1.05; }
 .ticket-info .dates{
