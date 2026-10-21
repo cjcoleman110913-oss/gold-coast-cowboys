@@ -318,6 +318,27 @@ const actions = {
     res.end(lines.join('\n'));
   },
 
+  // ---------- roommate / partner listings ----------
+  async listings(req, res) {
+    need(req, 'GET');
+    await requireAdmin(req);
+    const all = url(req).searchParams.get('status') === 'all';
+    const { rows } = await query(
+      `SELECT l.*, (SELECT count(*)::int FROM listing_requests r WHERE r.listing_id = l.id) AS requests
+         FROM listings l ${all ? '' : `WHERE l.status = 'open' AND l.expires_at > now()`} ORDER BY l.created_at DESC LIMIT 1000`);
+    send(res, 200, { listings: rows });
+  },
+
+  async 'listing-remove'(req, res) {
+    need(req, 'POST');
+    await requireAdmin(req);
+    const id = Number((await readJson(req)).id);
+    if (!Number.isInteger(id)) throw new HttpError(400, 'Invalid request.');
+    const { rows } = await query(`UPDATE listings SET status = 'removed', closed_at = now() WHERE id = $1 RETURNING id`, [id]);
+    if (!rows.length) throw new HttpError(404, 'Not found');
+    send(res, 200, { ok: true });
+  },
+
   async 'orders-csv'(req, res) {
     need(req, 'GET');
     await requireAdmin(req);

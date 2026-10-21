@@ -1,92 +1,11 @@
-/* ============================================
-   Roommates & Strictly Partners — listings feed
-   ============================================
-   Connected to the live Google Form's response Sheet ("Form
-   responses 1" tab inside "GCC Roommates & Partners Listings"),
-   published to the web as CSV. New form submissions show up here
-   automatically — no code changes needed.
-
-   Column names below must exactly match the Form's own question
-   text, since Google Forms uses the question text as the column
-   header:
-     Timestamp | Name | Event | I'm looking for: |
-     Nights you have the hotel room for: | Preferred roommate gender |
-     Competition / Style | Level | Lead or Follow needed |
-     Anything everyone else should know? | Instagram link or handle
-   ("I'm looking for:" must be exactly "Roommate" or "Partner";
-   Event must exactly match "Boots on the Coast", "St. Louis Stomp",
-   or "Tails California" so the per-event filters work.)
-
-   IF A FORM QUESTION EVER GETS RENAMED:
-   The column header here changes too (Forms uses the question text
-   as the header) — update the matching idx[...] lookup below to
-   the new exact wording, or the field will silently stop populating.
-
-   IF YOU EVER MOVE TO A NEW SHEET OR TAB:
-   File > Share > Publish to web > select the sheet tab >
-   Comma-separated values (.csv) > Publish, then paste that URL
-   below as CSV_URL.
-*/
-
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS6iluOkePNuvOAz2eP84flF-qN81YYBtFu_n0PPL6-FkhZ3vVyP9allopMlODZ8fVCQV5trQTJ67Ee/pub?gid=559659249&single=true&output=csv"; // <-- paste your published Google Sheet CSV link here
-
+/* Roommates & Strictly Partners: live listings from /api/listings.
+   People apply to a listing; the poster accepts or declines from a private link. */
 document.addEventListener('DOMContentLoaded', function () {
   var grid = document.getElementById('listings-grid');
   var emptyState = document.getElementById('listings-empty');
   var allListings = [];
   var activeType = 'all';
   var activeEvent = 'all';
-
-  function parseCSV(text) {
-    var rows = [];
-    var row = [];
-    var field = '';
-    var inQuotes = false;
-    for (var i = 0; i < text.length; i++) {
-      var c = text[i];
-      if (inQuotes) {
-        if (c === '"') {
-          if (text[i + 1] === '"') { field += '"'; i++; }
-          else { inQuotes = false; }
-        } else {
-          field += c;
-        }
-      } else {
-        if (c === '"') { inQuotes = true; }
-        else if (c === ',') { row.push(field); field = ''; }
-        else if (c === '\n' || c === '\r') {
-          if (field !== '' || row.length) { row.push(field); rows.push(row); }
-          field = ''; row = [];
-          if (c === '\r' && text[i + 1] === '\n') i++;
-        } else {
-          field += c;
-        }
-      }
-    }
-    if (field !== '' || row.length) { row.push(field); rows.push(row); }
-    return rows;
-  }
-
-  function rowsToListings(rows) {
-    if (!rows.length) return [];
-    var header = rows[0].map(function (h) { return h.trim(); });
-    var idx = {};
-    header.forEach(function (h, i) { idx[h] = i; });
-    return rows.slice(1).filter(function (r) { return r.length > 1; }).map(function (r) {
-      return {
-        type: (r[idx["I'm looking for:"]] || '').trim().toLowerCase(),
-        name: r[idx['Name']] || '',
-        event: r[idx['Event']] || '',
-        nights: r[idx['Nights you have the hotel room for:']] || '',
-        genderPref: r[idx['Preferred roommate gender']] || '',
-        competition: r[idx['Competition / Style']] || '',
-        level: r[idx['Level']] || '',
-        leadFollow: r[idx['Lead or Follow needed']] || '',
-        message: r[idx['Anything everyone else should know?']] || '',
-        instagram: r[idx['Instagram link or handle']] || ''
-      };
-    }).reverse(); // newest first
-  }
 
   function renderListings() {
     var filtered = allListings.filter(function (l) {
@@ -142,12 +61,19 @@ document.addEventListener('DOMContentLoaded', function () {
       if (l.instagram) {
         var ig = document.createElement('a');
         ig.className = 'btn ghost-gold';
-        ig.href = l.instagram.indexOf('http') === 0 ? l.instagram : ('https://instagram.com/' + l.instagram.replace('@', ''));
+        ig.href = l.instagram.indexOf('http') === 0 ? l.instagram : ('https://instagram.com/' + encodeURIComponent(l.instagram.replace(/^@/, '')));
         ig.target = '_blank';
         ig.rel = 'noopener';
-        ig.textContent = 'Message on Instagram';
+        ig.textContent = 'Instagram';
         card.appendChild(ig);
       }
+
+      var ask = document.createElement('button');
+      ask.type = 'button';
+      ask.className = 'btn solid';
+      ask.textContent = 'Request to connect';
+      ask.addEventListener('click', function () { openApply(l); });
+      card.appendChild(ask);
 
       grid.appendChild(card);
     });
@@ -176,16 +102,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  if (!CSV_URL) {
-    emptyState.hidden = false;
-    applyEventFromUrl();
-    return;
-  }
-
-  fetch(CSV_URL)
-    .then(function (res) { return res.text(); })
-    .then(function (text) {
-      allListings = rowsToListings(parseCSV(text));
+  fetch('/api/listings')
+    .then(function (res) { if (!res.ok) throw 0; return res.json(); })
+    .then(function (d) {
+      allListings = d.listings;
       applyEventFromUrl();
       renderListings();
     })
@@ -204,4 +124,41 @@ document.addEventListener('DOMContentLoaded', function () {
       activeEvent = eventParam;
     }
   }
+
+  var dlg = document.getElementById('apply-dialog');
+  var af = document.getElementById('apply-form');
+  var current = null;
+  function openApply(l) {
+    current = l;
+    af.reset();
+    document.getElementById('apply-error').hidden = true;
+    document.getElementById('apply-title').textContent = 'Request to connect with ' + (l.name || 'this dancer');
+    document.getElementById('apply-submit').disabled = false;
+    document.getElementById('apply-submit').textContent = 'Send request';
+    dlg.showModal();
+  }
+  document.getElementById('apply-cancel').addEventListener('click', function () { dlg.close(); });
+  af.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var err = document.getElementById('apply-error');
+    var btn = document.getElementById('apply-submit');
+    err.hidden = true; btn.disabled = true; btn.textContent = 'Sending…';
+    fetch('/api/listings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'apply', listingId: current.id, name: af.elements.name.value, email: af.elements.email.value, message: af.elements.message.value }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'Something went wrong.'); }); })
+      .then(function () {
+        document.getElementById('apply-title').textContent = 'Request sent!';
+        document.getElementById('apply-sub').textContent = 'They’ll get an email. If they accept, we’ll send you their contact info.';
+        af.querySelectorAll('label').forEach(function (n) { n.hidden = true; });
+        btn.hidden = true;
+        document.getElementById('apply-cancel').textContent = 'Close';
+      })
+      .catch(function (e) { err.textContent = e.message; err.hidden = false; btn.disabled = false; btn.textContent = 'Send request'; });
+  });
+  dlg.addEventListener('close', function () {
+    af.querySelectorAll('label').forEach(function (n) { n.hidden = false; });
+    document.getElementById('apply-submit').hidden = false;
+    document.getElementById('apply-cancel').textContent = 'Cancel';
+    document.getElementById('apply-sub').textContent = 'Your email is only shared if they accept.';
+  });
 });

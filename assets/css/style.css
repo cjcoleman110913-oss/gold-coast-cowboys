@@ -624,3 +624,20 @@ footer{
 
 .pass-prize{ color:var(--cream); margin:14px 0 0; }
 .filter-bar[hidden]{ display:none; }
+
+/* ---------- Listings: apply dialog, manage page ---------- */
+.buy-form textarea, .redeem-form textarea{ font:inherit; font-size:1rem; text-transform:none; letter-spacing:0; padding:12px; background:var(--bg); border:1px solid var(--line); color:var(--cream); border-radius:2px; width:100%; resize:vertical; }
+.redeem-form textarea{ background:var(--bg-raise); }
+.buy-form textarea:focus, .redeem-form textarea:focus{ outline:2px solid var(--cream); outline-offset:1px; }
+.buy-form small, .redeem-form small{ text-transform:none; letter-spacing:0; font-family:var(--body); }
+.manage{ max-width:640px; margin:0 auto; }
+.manage-card, .req-card{ border:1px solid var(--line); background:var(--bg-raise); padding:18px 20px; border-radius:4px; display:grid; gap:6px; margin-bottom:14px; }
+.manage-card strong{ color:var(--cream); }
+.req-card h3{ margin:0; font-size:1.1rem; }
+.req-card .listing-message{ color:var(--cream-dim); margin:0; }
+.req-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+.req-status{ margin:0; color:var(--cream-dim); }
+.req-status a{ color:var(--cream); text-decoration:underline; }
+.manage .keep{ display:flex; align-items:center; gap:10px; margin-top:18px; font-family:var(--body); font-size:.95rem; color:var(--cream-dim); }
+.listing-card .btn.solid{ background:var(--ink); border-color:var(--ink); color:var(--cream); }
+.listing-card .btn.solid:hover{ background:#333; border-color:#333; color:var(--cream); }

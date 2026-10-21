@@ -37,16 +37,16 @@
   <div class="wrap">
     <span class="eyebrow">Find Your People</span>
     <h1>Roommates &amp; Strictly Partners</h1>
-    <p class="lede" style="margin-top:14px;">Post what you need, share your Instagram, and let the community reach out to you.</p>
+    <p class="lede" style="margin-top:14px;">Post what you need and let the community send you a request. You choose who to accept.</p>
   </div>
 </header>
 
 <section>
   <div class="wrap">
     <div class="post-cta-row">
-      <a href="https://forms.gle/qzdnzwBCsu5ToVhz7" target="_blank" rel="noopener" class="btn solid">Post a Listing</a>
+      <a href="post-listing.html" class="btn solid">Post a Listing</a>
     </div>
-    <p class="post-cta-note">You'll choose Roommate or Partner on the first question of the form.</p>
+    <p class="post-cta-note">Your email stays private. People send you a request and you choose who to accept.</p>
   </div>
 </section>
 
@@ -73,10 +73,25 @@
 
     <div id="listings-grid" class="listings-grid"></div>
     <div id="listings-empty" class="listings-empty" hidden>
-      <p>No listings yet. Be the first to post once the form is live.</p>
+      <p>No listings yet. Be the first to post one!</p>
     </div>
   </div>
 </section>
+
+<dialog id="apply-dialog" class="buy-dialog">
+  <form method="dialog" id="apply-form" class="buy-form">
+    <h3 id="apply-title">Request to connect</h3>
+    <p id="apply-sub" class="buy-sub">Your email is only shared if they accept.</p>
+    <label>Your name<input type="text" name="name" required maxlength="80" autocomplete="name"></label>
+    <label>Your email<input type="email" name="email" required maxlength="200" autocomplete="email"></label>
+    <label>Message <small>(optional)</small><textarea name="message" rows="3" maxlength="600" placeholder="Say hi and tell them a little about yourself"></textarea></label>
+    <p id="apply-error" class="buy-error" role="alert" hidden></p>
+    <div class="buy-actions">
+      <button type="button" class="btn" id="apply-cancel">Cancel</button>
+      <button type="submit" class="btn solid" id="apply-submit">Send request</button>
+    </div>
+  </form>
+</dialog>
 
 <footer id="contact">
   <div class="wrap">

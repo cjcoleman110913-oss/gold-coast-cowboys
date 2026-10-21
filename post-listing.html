@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Post a Listing — Gold Coast Cowboys</title>
+<meta name="description" content="Post a roommate or strictly partner listing for a Gold Coast Cowboys event.">
+<link rel="icon" href="assets/img/gcc-logo.png?v=2">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="wrap">
+    <a href="index.html" class="brand-mark">
+      <img src="assets/img/gcc-logo.png?v=2" alt="Gold Coast Cowboys badge logo">
+      <span>GOLD COAST COWBOYS</span>
+    </a>
+    <button class="nav-toggle">☰</button>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <div class="nav-dropdown">
+        <a href="index.html#events" class="nav-dropdown-toggle">Events <span class="caret">▾</span></a>
+        <div class="nav-dropdown-menu">
+          <a href="boots-on-the-coast.html">Boots on the Coast</a>
+          <a href="st-louis-stomp.html">St. Louis Stomp</a>
+          <a href="tails-california.html">Tails California</a>
+        </div>
+      </div>
+      <a href="passes.html">Competitions</a>
+      <a href="index.html#contact">Contact</a>
+    </div>
+  </div>
+</nav>
+
+<header class="event-hero">
+  <div class="wrap">
+    <a href="partner-finder.html" class="breadcrumb">← Roommates &amp; Partners</a>
+    <div><span class="eyebrow">Find Your People</span></div>
+    <h1>Post a Listing</h1>
+    <p class="lede">Tell the community what you’re looking for. Your email stays private. People send you a request and you choose who to accept.</p>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <form id="post-form" class="redeem-form" novalidate>
+      <fieldset>
+        <legend>I’m looking for</legend>
+        <label class="choice"><input type="radio" name="kind" value="roommate" required> A roommate</label>
+        <label class="choice"><input type="radio" name="kind" value="partner"> A strictly partner</label>
+      </fieldset>
+      <label>Event
+        <select name="event" required>
+          <option value="">Choose an event…</option>
+          <option value="boots-on-the-coast">Boots on the Coast</option>
+          <option value="st-louis-stomp">St. Louis Stomp</option>
+          <option value="tails-california">Tails California</option>
+        </select>
+      </label>
+      <label>Your name<input type="text" name="name" required maxlength="80" autocomplete="name"></label>
+      <label>Your email <small>(private, never shown on the site)</small><input type="email" name="email" required maxlength="200" autocomplete="email"></label>
+      <div id="f-roommate" hidden>
+        <label>Nights you have the hotel room for<input type="text" name="nights" maxlength="120" placeholder="e.g. Thursday to Sunday"></label>
+        <label style="margin-top:18px;">Preferred roommate
+          <select name="genderPref"><option value="">No preference</option><option>Women</option><option>Men</option></select>
+        </label>
+      </div>
+      <div id="f-partner" hidden>
+        <label>Competition / style<input type="text" name="competition" maxlength="120" placeholder="e.g. Strictly Novice"></label>
+        <label style="margin-top:18px;">Level<input type="text" name="level" maxlength="60" placeholder="e.g. Novice"></label>
+        <label style="margin-top:18px;">I need a
+          <select name="roleNeeded"><option value="">Not sure</option><option>Lead</option><option>Follow</option><option>Either</option></select>
+        </label>
+      </div>
+      <label>Anything everyone else should know? <small>(optional)</small><textarea name="notes" rows="3" maxlength="600"></textarea></label>
+      <label>Instagram <small>(optional, shown on your listing)</small><input type="text" name="instagram" maxlength="120" placeholder="@yourhandle"></label>
+      <div class="hp" aria-hidden="true"><label>Leave this empty<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <p id="p-error" class="buy-error" role="alert" hidden></p>
+      <button type="submit" class="btn solid" id="p-submit">Post my listing</button>
+    </form>
+    <div id="p-done" class="redeem-done" hidden>
+      <h2>Your listing is live!</h2>
+      <p>People can now send you a request. We’ll email you when someone does. Save the private link below. It’s how you accept or decline requests and take your listing down once you’ve found someone. Don’t share it.</p>
+      <p><input id="p-link" readonly style="width:100%; padding:12px; background:var(--bg-raise); border:1px solid var(--line); color:var(--cream); font:inherit; font-size:0.85rem;"></p>
+      <p><button class="btn" id="p-copy" type="button">Copy link</button> <a class="btn solid" href="partner-finder.html">See the listings</a></p>
+      <p class="hint" style="font-size:0.9rem;">Listings come down on their own after 60 days.</p>
+    </div>
+  </div>
+</section>
+
+<footer id="contact">
+  <div class="wrap">
+    <div class="footer-grid">
+      <a href="index.html" class="footer-brand">
+        <img src="assets/img/gcc-logo.png?v=2" alt="Gold Coast Cowboys badge logo">
+        <span style="font-family:var(--display); font-size:1rem;">GOLD COAST COWBOYS</span>
+      </a>
+      <div class="footer-links">
+        <div class="footer-col">
+          <h4>Events</h4>
+          <a href="boots-on-the-coast.html">Boots on the Coast</a>
+          <a href="st-louis-stomp.html">St. Louis Stomp</a>
+          <a href="tails-california.html">Tails California</a>
+        </div>
+        <div class="footer-col">
+          <h4>Connect</h4>
+          <a href="https://www.instagram.com/goldcoastcowboys/" target="_blank" rel="noopener">Instagram</a>
+          <a href="mailto:dance@goldcoastcowboys.com">dance@goldcoastcowboys.com</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 Gold Coast Cowboys. All rights reserved.</span>
+      <span>Built for the dance floor.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+<script src="assets/js/post-listing.js"></script>
+</body>
+</html>

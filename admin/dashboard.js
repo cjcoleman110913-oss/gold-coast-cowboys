@@ -39,6 +39,7 @@ function showTab(name) {
   document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== 'tab-' + name; });
   if (name === 'buyers') loadBuyers();
   if (name === 'redemptions') loadRedemptions();
+  if (name === 'listings') loadListings();
   if (name === 'team') loadTeam();
 }
 
@@ -193,6 +194,25 @@ async function loadRedemptions() {
         try { await api('redemption-update', { method: 'POST', body: { id: r.id, status: r.status === 'done' ? 'new' : 'done' } }); loadRedemptions(); } catch (e) { fail(e); }
       } }, r.status === 'done' ? 'Mark new' : 'Mark handled'))));
     $('r-table').tBodies[0].replaceChildren(...(rows.length ? rows : [el('tr', {}, el('td', { colspan: 8, class: 'empty' }, 'Nothing here yet.'))]));
+  } catch (e) { fail(e); }
+}
+
+// ---------- roommate / partner listings ----------
+$('l-status').addEventListener('change', loadListings);
+async function loadListings() {
+  try {
+    const { listings } = await api('listings', { query: { status: $('l-status').value } });
+    $('l-summary').textContent = `${listings.length} shown`;
+    const rows = listings.map((l) => el('tr', {},
+      el('td', {}, fmt(l.created_at)), el('td', {}, l.kind), el('td', {}, pages[l.event_slug] || l.event_slug), el('td', {}, l.name),
+      el('td', {}, el('a', { href: 'mailto:' + l.email }, l.email)),
+      el('td', {}, [l.nights, l.gender_pref, l.competition, l.level, l.role_needed, l.notes].filter(Boolean).join(' · ')),
+      el('td', {}, String(l.requests)), el('td', {}, el('span', { class: 'status ' + (l.status === 'open' ? 'paid' : l.status) }, l.status)),
+      el('td', {}, l.status === 'open' ? el('button', { class: 'link-btn danger', onclick: async () => {
+        if (!confirm(`Remove ${l.name}'s listing from the site?`)) return;
+        try { await api('listing-remove', { method: 'POST', body: { id: l.id } }); loadListings(); } catch (e) { fail(e); }
+      } }, 'Remove') : '')));
+    $('l-table').tBodies[0].replaceChildren(...(rows.length ? rows : [el('tr', {}, el('td', { colspan: 9, class: 'empty' }, 'Nothing here yet.'))]));
   } catch (e) { fail(e); }
 }
 

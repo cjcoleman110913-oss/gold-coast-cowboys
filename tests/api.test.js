@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer } from './harness.js';
+import { setMailer } from '../lib/notify.js';
 
 let S;
 test.before(async () => { S = await startServer(); });
@@ -324,6 +325,94 @@ test('redemption form: validates, stores, admin lists and marks handled, CSV saf
   const csv = await owner.req('GET', '/api/admin/redemptions-csv?status=all');
   assert.ok(csv.text.startsWith('ID,Submitted,Status,Name,Email,Event,Ticket,Competition,Won at'));
   assert.ok(csv.text.includes("'=HYPERLINK"));
+});
+
+test('listings: post, apply, accept/decline, close, expiry, admin remove, privacy', async () => {
+  const mail = [];
+  setMailer(async (m) => { mail.push(m); });
+  const anon = new Client();
+  const post = (o) => anon.req('POST', '/api/listings', { action: 'create', ...o });
+  const room = { kind: 'roommate', event: 'boots-on-the-coast', name: 'Riley', email: 'Riley@Example.com', nights: 'Thu-Sun', genderPref: 'Women', notes: 'Early riser' };
+  assert.equal((await post({ ...room, kind: 'x' })).status, 400);
+  assert.equal((await post({ ...room, event: 'nope' })).status, 400);
+  assert.equal((await post({ ...room, email: 'bad' })).status, 400);
+  assert.equal((await post({ ...room, instagram: 'https://evil.example/x' })).status, 400);
+  assert.equal((await post({ ...room, website: 'spam' })).json.honeypot, true);
+  let r = await post(room);
+  assert.equal(r.status, 200);
+  const id = r.json.id; const manage = new URL(r.json.manageUrl);
+  const token = manage.searchParams.get('token');
+  assert.ok(mail.find((m) => m.to === 'riley@example.com' && m.text.includes('listing-manage.html')), 'poster gets private link');
+
+  // public list never leaks email or token
+  const pub = await anon.req('GET', '/api/listings');
+  assert.equal(pub.json.listings.length, 1);
+  assert.ok(!/riley@example|token/i.test(pub.text));
+  assert.equal(pub.json.listings[0].event, 'Boots on the Coast');
+
+  // applying
+  const apply = (o) => anon.req('POST', '/api/listings', { action: 'apply', listingId: id, ...o });
+  assert.equal((await apply({ name: 'Me', email: 'riley@example.com' })).status, 400, 'cannot apply to own listing');
+  assert.equal((await apply({ name: 'A', email: 'a@example.com' })).status, 400);
+  assert.equal((await apply({ name: 'Alex', email: 'alex@example.com', message: 'Hi!' })).status, 200);
+  assert.equal((await apply({ name: 'Alex', email: 'alex@example.com' })).status, 409, 'duplicate request');
+  assert.equal((await apply({ name: 'Sam', email: 'sam@example.com' })).status, 200);
+  assert.equal((await apply({ name: 'Jo', email: 'jo@example.com' })).status, 200);
+  assert.ok(mail.find((m) => m.to === 'riley@example.com' && /Alex wants to connect/.test(m.subject)), 'poster notified of request');
+  assert.equal((await anon.req('POST', '/api/listings', { action: 'apply', listingId: 9999, name: 'Zed', email: 'z@example.com' })).status, 404);
+
+  // manage: token required, applicant emails hidden until accepted
+  const mg = (t) => anon.req('GET', `/api/listing-manage?id=${id}&token=${t}`);
+  assert.equal((await mg('wrong')).status, 403);
+  let m = await mg(token);
+  assert.equal(m.status, 200);
+  assert.equal(m.json.requests.length, 3);
+  assert.ok(m.json.requests.every((q) => q.email === undefined));
+  const alex = m.json.requests.find((q) => q.name === 'Alex'), sam = m.json.requests.find((q) => q.name === 'Sam'), jo = m.json.requests.find((q) => q.name === 'Jo');
+  const act = (body) => anon.req('POST', '/api/listing-manage', { id, token, ...body });
+  assert.equal((await anon.req('POST', '/api/listing-manage', { id, token: 'bad', action: 'close' })).status, 403);
+
+  // decline emails the applicant, no contact info leaked
+  assert.equal((await act({ action: 'decline', requestId: sam.id })).status, 200);
+  const decl = mail.find((x) => x.to === 'sam@example.com');
+  assert.ok(decl && !decl.text.includes('riley@example.com'));
+  assert.equal((await act({ action: 'decline', requestId: sam.id })).status, 409);
+
+  // accept: exchanges contact, closes listing, tells the other pending applicant
+  r = await act({ action: 'accept', requestId: alex.id });
+  assert.equal(r.status, 200); assert.equal(r.json.email, 'alex@example.com');
+  assert.ok(mail.find((x) => x.to === 'alex@example.com' && x.text.includes('riley@example.com')));
+  assert.ok(mail.find((x) => x.to === 'riley@example.com' && x.text.includes('alex@example.com')));
+  assert.ok(mail.find((x) => x.to === 'jo@example.com' && /filled/.test(x.text)), 'other pending applicants told it was filled');
+  assert.equal((await anon.req('GET', '/api/listings')).json.listings.length, 0, 'accepted listing leaves the site');
+  assert.equal((await act({ action: 'accept', requestId: jo.id })).status, 409, 'jo was auto-declined');
+  m = await mg(token);
+  assert.equal(m.json.listing.status, 'filled');
+  assert.equal(m.json.requests.find((q) => q.name === 'Alex').email, 'alex@example.com');
+  assert.equal((await apply({ name: 'Late', email: 'late@example.com' })).status, 404, 'closed listings take no requests');
+
+  // keepOpen, close, expiry, admin remove
+  const mk = async (name) => (await post({ ...room, name, email: `${name.toLowerCase()}@example.com` })).json;
+  const k = await mk('Keep');
+  await anon.req('POST', '/api/listings', { action: 'apply', listingId: k.id, name: 'Pat', email: 'pat@example.com' });
+  const kt = new URL(k.manageUrl).searchParams.get('token');
+  const kreq = (await anon.req('GET', `/api/listing-manage?id=${k.id}&token=${kt}`)).json.requests[0];
+  await anon.req('POST', '/api/listing-manage', { id: k.id, token: kt, action: 'accept', requestId: kreq.id, keepOpen: true });
+  assert.ok((await anon.req('GET', '/api/listings')).json.listings.some((x) => x.id === k.id), 'keepOpen leaves it up');
+  assert.equal((await anon.req('POST', '/api/listing-manage', { id: k.id, token: kt, action: 'close' })).status, 200);
+  assert.ok(!(await anon.req('GET', '/api/listings')).json.listings.some((x) => x.id === k.id), 'close removes it');
+
+  const e = await mk('Old');
+  const { query } = await import('../lib/db.js');
+  await query(`UPDATE listings SET expires_at = now() - interval '1 day' WHERE id = $1`, [e.id]);
+  assert.ok(!(await anon.req('GET', '/api/listings')).json.listings.some((x) => x.id === e.id), 'expired listings disappear');
+
+  const a = await mk('Admin');
+  assert.equal((await anon.req('GET', '/api/admin/listings')).status, 401);
+  assert.equal((await owner.req('GET', '/api/admin/listings')).json.listings.some((x) => x.id === a.id), true);
+  assert.equal((await owner.req('POST', '/api/admin/listing-remove', { id: a.id })).status, 200);
+  assert.ok(!(await anon.req('GET', '/api/listings')).json.listings.some((x) => x.id === a.id));
+  setMailer(null);
 });
 
 test('logout clears session', async () => {
