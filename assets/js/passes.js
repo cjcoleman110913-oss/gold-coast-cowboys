@@ -29,9 +29,9 @@
     tabs.appendChild(b);
   });
   $('p-eyebrow').textContent = slug ? EVENTS[slug] : 'Gold Coast Cowboys';
-  $('p-title').textContent = 'Passes';
-  $('p-lede').textContent = 'Pick your event, pick your pass, and lock in your spot.';
-  document.title = (slug ? EVENTS[slug] + ' ' : '') + 'Passes — Gold Coast Cowboys';
+  $('p-title').textContent = 'Competitions';
+  $('p-lede').textContent = 'Pick a competition and lock in your spot. Event weekend tickets are sold separately.';
+  document.title = (slug ? EVENTS[slug] + ' ' : '') + 'Competitions — Gold Coast Cowboys';
 
   function passRow(c, p) {
     var row = el('div', 'pass-row');
@@ -69,9 +69,9 @@
   }
 
   fetch('/api/passes' + (slug ? '?event=' + slug : '')).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (d) {
-    if (!d.competitions.length) { $('p-status').textContent = 'Passes ' + (slug ? 'for ' + EVENTS[slug] + ' ' : '') + 'aren’t on sale yet. Check back soon, or join the newsletter to be first to know.'; return; }
+    if (!d.competitions.length) { $('p-status').textContent = 'Competitions ' + (slug ? 'for ' + EVENTS[slug] + ' ' : '') + 'aren’t open yet. Check back soon, or join the newsletter to be first to know.'; return; }
     $('p-status').hidden = true; render(d.competitions);
-  }).catch(function () { $('p-status').textContent = 'We couldn’t load passes right now. Please refresh and try again.'; });
+  }).catch(function () { $('p-status').textContent = 'We couldn’t load competitions right now. Please refresh and try again.'; });
 
   var dlg = $('buy-dialog'), form = $('buy-form'), current = null;
   function openBuy(c, p) {

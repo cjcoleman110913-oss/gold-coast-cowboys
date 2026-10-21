@@ -2,7 +2,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var sid = new URLSearchParams(location.search).get('session_id');
   function line(k, v) { var p = document.createElement('p'); var b = document.createElement('strong'); b.textContent = k + ': '; p.appendChild(b); p.appendChild(document.createTextNode(v)); return p; }
-  if (!sid) { $('s-title').textContent = 'No order found'; $('s-lede').textContent = 'Head back to the passes page to pick a competition.'; return; }
+  if (!sid) { $('s-title').textContent = 'No order found'; $('s-lede').textContent = 'Head back to the competitions page to pick one.'; return; }
   var tries = 0;
   function check() {
     fetch('/api/order-status?session_id=' + encodeURIComponent(sid)).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (o) {
