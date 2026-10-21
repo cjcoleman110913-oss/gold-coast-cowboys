@@ -623,3 +623,4 @@ footer{
 .redeem-done{ max-width:560px; margin:0 auto; text-align:center; }
 
 .pass-prize{ color:var(--cream); margin:14px 0 0; }
+.filter-bar[hidden]{ display:none; }
