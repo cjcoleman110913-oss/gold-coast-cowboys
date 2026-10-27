@@ -49,14 +49,15 @@ async function bundleCheckout(req, res, body) {
       client_reference_id: `bundle-${order.id}`,
       metadata: { bundle_order_id: String(order.id) },
     };
-    // Monthly plan: down payment now (one-time item), then a monthly subscription that starts in 30 days.
+    // Monthly plan: down payment now (one-time item), then a monthly subscription whose first charge is one month out.
+    // billing_cycle_anchor (not a free trial) so Stripe's page never says "free trial"; proration none = no charge for the gap.
     // The webhook cancels the subscription after the last payment.
     const mode = order.plan
       ? { mode: 'subscription',
           line_items: [
             { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.monthlyCents, recurring: { interval: 'month' }, product_data: product(` (monthly payment, ${order.plan.months} total)`) } },
             { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.downCents, product_data: product(' (down payment)') } }],
-          subscription_data: { trial_end: Math.floor(addMonths(new Date(), 1).getTime() / 1000), metadata: { bundle_order_id: String(order.id) } } }
+          subscription_data: { billing_cycle_anchor: Math.floor(addMonths(new Date(), 1).getTime() / 1000), proration_behavior: 'none', metadata: { bundle_order_id: String(order.id) } } }
       : { mode: 'payment',
           line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount, product_data: product('') } }],
           payment_intent_data: { metadata: { bundle_order_id: String(order.id) } } };

@@ -491,7 +491,8 @@ test('bundles: monthly payment plan (down payment, 7 payments, auto-stop, failur
   const sess = [...S.stripe.sessions.entries()].filter(([, v]) => v.mode === 'subscription').at(-1);
   const p = sess[1];
   assert.equal(p.mode, 'subscription');
-  const firstPay = new Date(p.subscription_data.trial_end * 1000), dayMs = 86400000;
+  assert.equal(p.subscription_data.trial_end, undefined, 'no free trial'); assert.equal(p.subscription_data.proration_behavior, 'none');
+  const firstPay = new Date(p.subscription_data.billing_cycle_anchor * 1000), dayMs = 86400000;
   assert.ok(firstPay - Date.now() > 27 * dayMs && firstPay - Date.now() < 32 * dayMs, 'first installment is one month out');
   assert.deepEqual(p.line_items.map((l) => [l.price_data.unit_amount, !!l.price_data.recurring]), [[8200, true], [4900, false]]);
   const { rows: [o] } = await S.db.query(`SELECT * FROM bundle_orders WHERE stripe_session_id = $1`, [sess[0]]);
