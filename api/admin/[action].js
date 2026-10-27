@@ -288,6 +288,18 @@ const actions = {
     send(res, 200, { bundles: await listBundles(), orders: await fetchBundleOrders(url(req).searchParams) });
   },
 
+  // Free up a spot held by a canceled / abandoned payment plan.
+  async 'bundle-release'(req, res) {
+    need(req, 'POST');
+    await requireAdmin(req);
+    const id = Number.parseInt((await readJson(req)).id, 10);
+    if (!Number.isInteger(id)) throw new HttpError(400, 'Invalid request.');
+    const { rows } = await query(
+      `UPDATE bundle_orders SET status = 'refunded' WHERE id = $1 AND plan = 'monthly' AND plan_status = 'canceled' AND status = 'paid' RETURNING id`, [id]);
+    if (!rows.length) throw new HttpError(409, 'Only a canceled payment plan can be released.');
+    send(res, 200, { ok: true });
+  },
+
   async 'bundles-csv'(req, res) {
     need(req, 'GET');
     await requireAdmin(req);
@@ -297,8 +309,12 @@ const actions = {
       if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const lines = [['Order', 'Status', 'Name', 'Email', 'Bundle', 'Amount (USD)', 'Paid at'].join(',')].concat(rows.map((o) => [
-      o.id, o.status, o.buyer_name, o.email, o.bundle_name, (o.amount_cents / 100).toFixed(2), o.paid_at ? new Date(o.paid_at).toISOString() : ''
+    const lines = [['Order', 'Status', 'Name', 'Email', 'Bundle', 'Plan', 'Monthly payments made', 'Plan status', 'Paid so far (USD)', 'Plan total (USD)', 'Paid at'].join(',')].concat(rows.map((o) => [
+      o.id, o.status, o.buyer_name, o.email, o.bundle_name, o.plan === 'monthly' ? 'Monthly' : 'Full',
+      o.plan === 'monthly' ? `${o.monthly_paid} of ${o.plan_months}` : '', o.plan_status || '',
+      ((o.plan === 'monthly' ? o.plan_paid_cents : o.amount_cents) / 100).toFixed(2),
+      o.plan === 'monthly' ? (o.plan_total_cents / 100).toFixed(2) : (o.amount_cents / 100).toFixed(2),
+      o.paid_at ? new Date(o.paid_at).toISOString() : ''
     ].map(esc).join(',')));
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -395,7 +411,10 @@ async function fetchBundleOrders(sp) {
   const slug = sp.get('bundle');
   if (slug) { params.push(slug); where.push(`o.bundle_slug = $${params.length}`); }
   const { rows } = await query(
-    `SELECT o.id, o.status, o.buyer_name, o.email, o.amount_cents, o.paid_at, o.created_at, o.bundle_slug, b.name AS bundle_name
+    `SELECT o.id, o.status, o.buyer_name, o.email, o.amount_cents, o.paid_at, o.created_at, o.bundle_slug, b.name AS bundle_name,
+            o.plan, o.plan_months, o.plan_monthly_cents, o.plan_total_cents, o.plan_status,
+            (SELECT count(*)::int FROM bundle_payments p WHERE p.order_id = o.id AND p.kind = 'monthly') AS monthly_paid,
+            (SELECT COALESCE(sum(p.amount_cents),0)::int FROM bundle_payments p WHERE p.order_id = o.id) AS plan_paid_cents
        FROM bundle_orders o JOIN bundles b ON b.slug = o.bundle_slug
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY COALESCE(o.paid_at, o.created_at) DESC LIMIT 5000`, params);

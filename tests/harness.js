@@ -16,6 +16,8 @@ export function fakeStripe() {
   let n = 0;
   return {
     sessions,
+    canceled: [],
+    subscriptions: { cancel: async (id) => { /* set below */ } },
     failNext: false,
     checkout: { sessions: { async create(params) {
       if (this.failNext) throw new Error('stripe down');
@@ -38,6 +40,7 @@ export async function startServer({ port = 0 } = {}) {
   const stripe = fakeStripe();
   // `failNext` lives on the object; bind create so `this` works.
   stripe.checkout.sessions.create = stripe.checkout.sessions.create.bind(stripe);
+  stripe.subscriptions.cancel = async (id) => { stripe.canceled.push(id); return { id }; };
   setStripe(stripe);
 
   const routes = {

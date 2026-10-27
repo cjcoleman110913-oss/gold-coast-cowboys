@@ -12,10 +12,11 @@ export default wrap(async (req, res) => {
   const o = rows[0];
   if (!o) {
     const { rows: [bo] } = await query(
-      `SELECT o.status, o.buyer_name, o.email, o.amount_cents, b.name AS bundle_name
+      `SELECT o.status, o.buyer_name, o.email, o.amount_cents, o.plan, o.plan_months, o.plan_monthly_cents, o.plan_total_cents, b.name AS bundle_name
          FROM bundle_orders o JOIN bundles b ON b.slug = o.bundle_slug WHERE o.stripe_session_id = $1`, [sid]);
     if (!bo) throw new HttpError(404, 'Order not found');
-    return send(res, 200, { status: bo.status, name: bo.buyer_name, email: bo.email, amountCents: bo.amount_cents, bundle: bo.bundle_name });
+    return send(res, 200, { status: bo.status, name: bo.buyer_name, email: bo.email, amountCents: bo.amount_cents, bundle: bo.bundle_name,
+      plan: bo.plan === 'monthly' ? { months: bo.plan_months, monthlyCents: bo.plan_monthly_cents, totalCents: bo.plan_total_cents } : null });
   }
   send(res, 200, { status: o.status, name: o.buyer_name, email: o.email, amountCents: o.amount_cents,
     passName: o.pass_name, role: o.role, title: o.title, style: o.style, level: o.level,

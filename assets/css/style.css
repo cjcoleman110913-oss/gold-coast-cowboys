@@ -652,3 +652,11 @@ footer{
 .gt-buy:hover:not(:disabled){filter:brightness(1.12)}
 .gt-buy:disabled{background:transparent;color:var(--c);opacity:.6;cursor:not-allowed}
 .gt-left{font-family:var(--mono);letter-spacing:.2em;text-transform:uppercase;font-size:.68rem;color:var(--c);margin:10px 0 0}
+
+.plan-pick{border:0;padding:0;margin:0;display:grid;gap:10px}
+.plan-pick legend{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cream-dim);padding:0 0 8px}
+.buy-form .plan-opt{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);padding:12px;cursor:pointer;text-transform:none;letter-spacing:0;font-family:var(--body);font-size:1rem;color:var(--cream)}
+.buy-form .plan-opt input{width:auto;margin-top:4px;padding:0}
+.plan-opt span{display:grid;gap:4px}
+.plan-opt small{color:var(--cream-dim);font-size:.85rem;line-height:1.4}
+.plan-opt:has(input:checked){border-color:var(--cream)}

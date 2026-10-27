@@ -84,8 +84,8 @@
       <label>Show<select id="bn-status"><option value="">Paid &amp; refunded</option><option value="paid">Paid only</option><option value="refunded">Refunded only</option><option value="pending">Pending checkouts</option><option value="all">Everything</option></select></label>
     </div>
     <p id="bn-summary" class="hint"></p>
-    <div class="table-wrap"><table id="bn-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Bundle</th><th>Paid</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-    <p class="hint">To refund someone, issue the refund in your Stripe dashboard. It will show up here as “refunded” automatically and free up their spot.</p>
+    <div class="table-wrap"><table id="bn-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Bundle</th><th>Plan</th><th>Paid so far</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
+    <p class="hint">Monthly plans stop on their own after the last payment. A plan marked <strong>past due</strong> is being retried automatically; <strong>canceled</strong> means the card kept failing or it was canceled in Stripe, and you can release its spot here. To refund someone, issue the refund in your Stripe dashboard.</p>
   </section>
 
   <section id="tab-redemptions" class="tab" hidden>

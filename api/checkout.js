@@ -2,13 +2,14 @@ import { wrap, send, readJson, HttpError, EMAIL_RE, origin } from '../lib/http.j
 import { tx, query } from '../lib/db.js';
 import { getStripe } from '../lib/stripe.js';
 import { currentPriceCents } from '../lib/passes.js';
-import { listBundles } from '../lib/bundles.js';
+import { listBundles, planOf } from '../lib/bundles.js';
 
 const HOLD_MINUTES = 32; // Stripe sessions must live >= 30 min; hold the spot a bit longer
 
 // Season-pass bundles (Bronze / Silver / Gold): same flow, separate tables.
 async function bundleCheckout(req, res, body) {
   const slug = String(body.bundle || '').toLowerCase();
+  const monthly = body.plan === 'monthly';
   const name = String(body.name || '').trim().slice(0, 120);
   const email = String(body.email || '').trim().toLowerCase().slice(0, 200);
   if (!name) throw new HttpError(400, 'Please enter your name.');
@@ -24,24 +25,39 @@ async function bundleCheckout(req, res, body) {
           AND (status = 'paid' OR (status = 'pending' AND expires_at > now()))`, [slug]);
       if (n >= b.cap) throw new HttpError(409, 'Sorry, this pass is sold out.');
     }
+    const plan = monthly ? planOf(b) : null;
+    if (monthly && !plan) throw new HttpError(400, 'Monthly payments are not available for this pass.');
     const { rows: [o] } = await db.query(
-      `INSERT INTO bundle_orders (bundle_slug, email, buyer_name, amount_cents, status, expires_at)
-       VALUES ($1,$2,$3,$4,'pending', now() + ($5 || ' minutes')::interval) RETURNING id`,
-      [slug, email, name, b.price_cents, String(HOLD_MINUTES)]);
-    return { id: o.id, amount: b.price_cents, b };
+      `INSERT INTO bundle_orders (bundle_slug, email, buyer_name, amount_cents, status, expires_at,
+                                  plan, plan_months, plan_monthly_cents, plan_total_cents, plan_status)
+       VALUES ($1,$2,$3,$4,'pending', now() + ($5 || ' minutes')::interval, $6,$7,$8,$9,$10) RETURNING id`,
+      [slug, email, name, plan ? plan.downCents : b.price_cents, String(HOLD_MINUTES),
+       plan ? 'monthly' : 'full', plan?.months ?? null, plan?.monthlyCents ?? null, plan?.totalCents ?? null, plan ? 'active' : null]);
+    return { id: o.id, amount: plan ? plan.downCents : b.price_cents, b, plan };
   });
 
   const base = origin(req);
   try {
-    const session = await getStripe().checkout.sessions.create({
-      mode: 'payment',
+    const product = (suffix) => ({ name: `Gold Coast Cowboys 2027 Season Pass: ${order.b.name}${suffix}`.slice(0, 250),
+      description: 'Boots on the Coast, St. Louis Stomp and Tails California' });
+    const common = {
       customer_email: email,
       client_reference_id: `bundle-${order.id}`,
-      line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount,
-        product_data: { name: `Gold Coast Cowboys 2027 Season Pass: ${order.b.name}`.slice(0, 250),
-          description: 'Boots on the Coast, St. Louis Stomp and Tails California' } } }],
       metadata: { bundle_order_id: String(order.id) },
-      payment_intent_data: { metadata: { bundle_order_id: String(order.id) } },
+    };
+    // Monthly plan: down payment now (one-time item), then a monthly subscription that starts in 30 days.
+    // The webhook cancels the subscription after the last payment.
+    const mode = order.plan
+      ? { mode: 'subscription',
+          line_items: [
+            { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.monthlyCents, recurring: { interval: 'month' }, product_data: product(` (monthly payment, ${order.plan.months} total)`) } },
+            { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.downCents, product_data: product(' (down payment)') } }],
+          subscription_data: { trial_period_days: 30, metadata: { bundle_order_id: String(order.id) } } }
+      : { mode: 'payment',
+          line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount, product_data: product('') } }],
+          payment_intent_data: { metadata: { bundle_order_id: String(order.id) } } };
+    const session = await getStripe().checkout.sessions.create({
+      ...common, ...mode,
       expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
       success_url: `${base}/pass-success.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/index.html#season-passes`

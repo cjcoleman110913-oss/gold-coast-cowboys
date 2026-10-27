@@ -10,7 +10,9 @@
         $('s-title').textContent = 'You’re in, ' + o.name.split(' ')[0] + '!';
         $('s-lede').textContent = 'Your payment went through. A receipt is on its way to ' + o.email + '.';
         var c = $('s-card'); c.textContent = '';
-        if (o.bundle) { c.appendChild(line('Pass', o.bundle)); c.appendChild(line('Events', 'Boots on the Coast, St. Louis Stomp, Tails California')); c.appendChild(line('Paid', '$' + (o.amountCents / 100).toFixed(2))); c.hidden = false; return; }
+        if (o.bundle) { c.appendChild(line('Pass', o.bundle)); c.appendChild(line('Events', 'Boots on the Coast, St. Louis Stomp, Tails California')); c.appendChild(line('Paid today', '$' + (o.amountCents / 100).toFixed(2)));
+          if (o.plan) c.appendChild(line('Then', o.plan.months + ' monthly payments of $' + (o.plan.monthlyCents / 100).toFixed(2) + ', starting in 30 days (total $' + (o.plan.totalCents / 100).toFixed(2) + ')'));
+          c.hidden = false; return; }
         c.appendChild(line('Event', o.title));
         if (o.date) c.appendChild(line('Date', o.date + (o.endDate && o.endDate !== o.date ? ' to ' + o.endDate : '')));
         if (o.location) c.appendChild(line('Location', o.location));

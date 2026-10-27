@@ -3,7 +3,7 @@
   var dlg = document.getElementById('bundle-dialog'), form = document.getElementById('bundle-form');
   if (!buttons.length || !dlg) return;
   var $ = function (id) { return document.getElementById(id); };
-  var money = function (c) { return '$' + (c / 100).toLocaleString(undefined, { minimumFractionDigits: 0 }); };
+  var money = function (c) { return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: c % 100 ? 2 : 0 }); };
   var info = {}, current = null;
 
   fetch('/api/checkout').then(function (r) { return r.json(); }).then(function (d) {
@@ -23,7 +23,14 @@
       current = btn.dataset.bundle; form.reset(); $('bundle-error').hidden = true;
       var b = info[current];
       $('bundle-title').textContent = b ? b.name : 'Season pass';
-      $('bundle-sub').textContent = (b ? money(b.priceCents) + ' · ' : '') + 'All 3 events: Boots on the Coast, St. Louis Stomp, Tails California';
+      $('bundle-sub').textContent = 'All 3 events: Boots on the Coast, St. Louis Stomp, Tails California';
+      var pl = b && b.plan;
+      $('plan-full-sub').textContent = b ? money(b.priceCents) + ' today. No extra fees.' : '';
+      $('plan-monthly-opt').hidden = !pl;
+      if (pl) {
+        $('plan-monthly-sub').textContent = money(pl.downCents) + ' today, then ' + pl.months + ' monthly payments of ' + money(pl.monthlyCents) +
+          '. Total ' + money(pl.totalCents) + ' (includes a 4% payment plan fee). Charged automatically each month.';
+      }
       $('bundle-submit').disabled = false; $('bundle-submit').textContent = 'Continue to payment';
       if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
     });
@@ -33,7 +40,7 @@
     e.preventDefault();
     var btn = $('bundle-submit'); btn.disabled = true; btn.textContent = 'One moment…'; $('bundle-error').hidden = true;
     fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bundle: current, name: form.elements.name.value, email: form.elements.email.value }) })
+      body: JSON.stringify({ bundle: current, plan: form.elements.plan.value, name: form.elements.name.value, email: form.elements.email.value }) })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (x) { if (!x.ok) throw new Error(x.d.error || 'Something went wrong.'); location.href = x.d.url; })
       .catch(function (err) { $('bundle-error').textContent = err.message; $('bundle-error').hidden = false; btn.disabled = false; btn.textContent = 'Continue to payment'; });

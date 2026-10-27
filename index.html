@@ -111,6 +111,11 @@
     <p id="bundle-sub" class="buy-sub"></p>
     <label>Your name<input name="name" required maxlength="120" autocomplete="name"></label>
     <label>Email<input name="email" type="email" required maxlength="200" autocomplete="email"></label>
+    <fieldset class="plan-pick" id="plan-pick">
+      <legend>How would you like to pay?</legend>
+      <label class="plan-opt"><input type="radio" name="plan" value="full" checked><span><strong id="plan-full-title">Pay in full</strong><small id="plan-full-sub"></small></span></label>
+      <label class="plan-opt" id="plan-monthly-opt"><input type="radio" name="plan" value="monthly"><span><strong id="plan-monthly-title">Pay monthly</strong><small id="plan-monthly-sub"></small></span></label>
+    </fieldset>
     <p id="bundle-error" class="buy-error" role="alert" hidden></p>
     <div class="buy-actions">
       <button type="button" class="btn" id="bundle-cancel">Cancel</button>

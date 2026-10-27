@@ -466,3 +466,86 @@ test('bundles: availability, checkout, caps, webhook, admin tab', async () => {
   assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'gold', name: 'Late', email: 'late@x.com' })).status, 200);
   setMailer(null);
 });
+
+test('bundles: monthly payment plan (down payment, 7 payments, auto-stop, failures, release)', async () => {
+  const { default: Stripe } = await import('stripe');
+  const hook = async (type, object) => {
+    const payload = JSON.stringify({ id: 'evt_' + Math.random(), type, data: { object } });
+    const header = Stripe.webhooks.generateTestHeaderString({ payload, secret: process.env.STRIPE_WEBHOOK_SECRET });
+    return (await fetch(`${S.base}/api/webhook`, { method: 'POST', headers: { 'stripe-signature': header, 'content-type': 'application/json' }, body: payload })).status;
+  };
+  const anon = new Client();
+  const sent = []; setMailer(async (m) => { sent.push(m); });
+  const pub = (await anon.req('GET', '/api/checkout')).json.bundles;
+  assert.deepEqual(pub.map((b) => [b.slug, b.plan.downCents, b.plan.monthlyCents, b.plan.months, b.plan.totalCents]),
+    [['bronze', 4900, 8200, 7, 62300], ['silver', 10400, 8900, 7, 72700], ['gold', 14800, 10500, 7, 88300]]);
+  // plan totals are the full price + 4%
+  for (const b of pub) assert.ok(Math.abs(b.plan.totalCents - b.priceCents * 1.04) < 100, b.slug);
+
+  const r = await anon.req('POST', '/api/checkout', { bundle: 'bronze', plan: 'monthly', name: 'Molly Monthly', email: 'molly@x.com' });
+  assert.equal(r.status, 200);
+  const sess = [...S.stripe.sessions.entries()].at(-1);
+  const p = sess[1];
+  assert.equal(p.mode, 'subscription'); assert.equal(p.subscription_data.trial_period_days, 30);
+  assert.deepEqual(p.line_items.map((l) => [l.price_data.unit_amount, !!l.price_data.recurring]), [[8200, true], [4900, false]]);
+  const { rows: [o] } = await S.db.query(`SELECT * FROM bundle_orders WHERE stripe_session_id = $1`, [sess[0]]);
+  assert.equal(o.plan, 'monthly'); assert.equal(o.amount_cents, 4900); assert.equal(o.plan_total_cents, 62300);
+
+  // down payment succeeds
+  assert.equal(await hook('checkout.session.completed', { id: sess[0], payment_status: 'paid', subscription: 'sub_m1', payment_intent: null }), 200);
+  assert.equal((await S.db.query('SELECT status, plan_status, stripe_subscription_id FROM bundle_orders WHERE id=$1', [o.id])).rows[0].plan_status, 'active');
+  assert.ok(sent.some((m) => m.to === 'molly@x.com' && /7 monthly payments of \$82/.test(m.text)), 'buyer gets the schedule');
+  const down = { id: 'in_0', billing_reason: 'subscription_create', amount_paid: 4900, parent: { subscription_details: { subscription: 'sub_m1' } } };
+  assert.equal(await hook('invoice.paid', down), 200);
+  assert.equal((await S.db.query(`SELECT count(*)::int n FROM bundle_payments WHERE kind='monthly'`)).rows[0].n, 0, 'down payment is not a monthly payment');
+  // 7 monthly payments (one redelivered): stops only after the 7th
+  for (let i = 1; i <= 7; i++) {
+    const inv = { id: 'in_' + i, billing_reason: 'subscription_cycle', amount_paid: 8200, parent: { subscription_details: { subscription: 'sub_m1' } } };
+    assert.equal(await hook('invoice.paid', inv), 200);
+    if (i === 3) assert.equal(await hook('invoice.paid', inv), 200);
+    const st = (await S.db.query('SELECT plan_status FROM bundle_orders WHERE id=$1', [o.id])).rows[0].plan_status;
+    assert.equal(st, i < 7 ? 'active' : 'completed', 'after payment ' + i);
+    assert.equal(S.stripe.canceled.length, i < 7 ? 0 : 1);
+  }
+  assert.deepEqual(S.stripe.canceled, ['sub_m1']);
+  assert.ok(sent.some((m) => m.to === 'molly@x.com' && /paid off/.test(m.subject)));
+  assert.equal(await hook('customer.subscription.deleted', { id: 'sub_m1' }), 200);
+  assert.equal((await S.db.query('SELECT plan_status FROM bundle_orders WHERE id=$1', [o.id])).rows[0].plan_status, 'completed', 'our own cancel does not raise an alert');
+
+  // failure path
+  sent.length = 0;
+  await anon.req('POST', '/api/checkout', { bundle: 'silver', plan: 'monthly', name: 'Fay Failed', email: 'fay@x.com' });
+  const s2 = [...S.stripe.sessions.keys()].at(-1);
+  await hook('checkout.session.completed', { id: s2, payment_status: 'paid', subscription: 'sub_f1' });
+  const failInv = { id: 'in_f1', billing_reason: 'subscription_cycle', attempt_count: 2, amount_due: 8900, hosted_invoice_url: 'https://invoice.stripe.com/i/x', subscription: 'sub_f1' };
+  assert.equal(await hook('invoice.payment_failed', failInv), 200);
+  const fo = (await S.db.query(`SELECT id, plan_status FROM bundle_orders WHERE stripe_subscription_id='sub_f1'`)).rows[0];
+  assert.equal(fo.plan_status, 'past_due');
+  assert.ok(sent.some((m) => m.to === 'dance@goldcoastcowboys.com' && /PAYMENT FAILED/.test(m.subject)), 'Brian is alerted');
+  assert.ok(sent.some((m) => m.to === 'fay@x.com' && /invoice\.stripe\.com/.test(m.html)), 'buyer gets a pay-now link');
+  // a later successful retry clears past_due
+  await hook('invoice.paid', { ...failInv, id: 'in_f2', amount_paid: 8900 });
+  assert.equal((await S.db.query('SELECT plan_status FROM bundle_orders WHERE id=$1', [fo.id])).rows[0].plan_status, 'active');
+  // retries exhausted: subscription canceled by Stripe -> alert + releasable
+  sent.length = 0;
+  await hook('invoice.payment_failed', { ...failInv, id: 'in_f3' });
+  assert.equal(await hook('customer.subscription.deleted', { id: 'sub_f1' }), 200);
+  assert.ok(sent.some((m) => /PLAN CANCELED/.test(m.subject)));
+  const spots = async () => (await anon.req('GET', '/api/checkout')).json.bundles.find((b) => b.slug === 'silver').remaining;
+  const before = await spots();
+  assert.equal((await new Client().req('POST', '/api/admin/bundle-release', { id: fo.id })).status, 401);
+  assert.equal((await owner.req('POST', '/api/admin/bundle-release', { id: fo.id })).status, 200);
+  assert.equal(await spots(), before + 1, 'spot freed');
+  assert.equal((await owner.req('POST', '/api/admin/bundle-release', { id: fo.id })).status, 409);
+  // admin tab + csv show plan progress
+  const a = await owner.req('GET', '/api/admin/bundles?status=all');
+  const molly = a.json.orders.find((x) => x.email === 'molly@x.com');
+  assert.equal(molly.monthly_paid, 7); assert.equal(molly.plan_paid_cents, 4900 + 7 * 8200);
+  assert.match((await owner.req('GET', '/api/admin/bundles-csv?status=all')).text, /7 of 7/);
+  // order-status shows the plan
+  const st = await anon.req('GET', '/api/order-status?session_id=' + sess[0]);
+  assert.equal(st.json.plan.months, 7);
+  // monthly not offered for an unknown bundle; client can't pick amounts
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'nope', plan: 'monthly', name: 'A', email: 'a@x.com' })).status, 404);
+  setMailer(null);
+});

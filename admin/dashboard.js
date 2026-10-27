@@ -192,12 +192,20 @@ async function loadBundles() {
       el('strong', {}, b.name), el('span', {}, money(b.priceCents)),
       el('span', {}, b.cap == null ? 'No limit' : `${b.cap - b.remaining} of ${b.cap} taken`))));
     const paid = orders.filter((o) => o.status === 'paid');
-    $('bn-summary').textContent = `${orders.length} order${orders.length === 1 ? '' : 's'} shown · ${paid.length} paid · ${money(paid.reduce((s, o) => s + o.amount_cents, 0))} collected`;
-    $('bn-table').tBodies[0].replaceChildren(...orders.map((o) => el('tr', {},
-      el('td', {}, fmt(o.paid_at || o.created_at)), el('td', {}, o.buyer_name), el('td', {}, el('a', { href: 'mailto:' + o.email }, o.email)),
-      el('td', {}, o.bundle_name), el('td', {}, money(o.amount_cents)),
-      el('td', {}, el('span', { class: 'status ' + o.status }, o.status)))));
-    if (!orders.length) $('bn-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'empty' }, 'No bundle purchases yet.')));
+    $('bn-summary').textContent = `${orders.length} order${orders.length === 1 ? '' : 's'} shown · ${paid.length} paid · ${money(paid.reduce((s, o) => s + (o.plan === 'monthly' ? o.plan_paid_cents : o.amount_cents), 0))} collected so far`;
+    const PLAN_LABEL = { active: 'On track', past_due: 'Past due', canceled: 'Canceled', completed: 'Paid off' };
+    $('bn-table').tBodies[0].replaceChildren(...orders.map((o) => {
+      const monthly = o.plan === 'monthly';
+      const paidSoFar = monthly ? o.plan_paid_cents : o.amount_cents;
+      const planCell = monthly ? `Monthly: ${o.monthly_paid} of ${o.plan_months} paid` + (o.plan_status ? ` · ${PLAN_LABEL[o.plan_status] || o.plan_status}` : '') : 'Paid in full';
+      const release = monthly && o.plan_status === 'canceled' && o.status === 'paid'
+        ? el('button', { class: 'btn', onclick: async () => { if (!confirm('Release this spot? They will no longer count toward the limit.')) return; try { await api('bundle-release', { method: 'POST', body: { id: o.id } }); loadBundles(); } catch (e) { fail(e); } } }, 'Release spot') : '';
+      return el('tr', {},
+        el('td', {}, fmt(o.paid_at || o.created_at)), el('td', {}, o.buyer_name), el('td', {}, el('a', { href: 'mailto:' + o.email }, o.email)),
+        el('td', {}, o.bundle_name), el('td', {}, planCell), el('td', {}, money(paidSoFar) + (monthly ? ' of ' + money(o.plan_total_cents) : '')),
+        el('td', {}, el('span', { class: 'status ' + (o.plan_status === 'past_due' || o.plan_status === 'canceled' ? 'pending' : o.status) }, o.status)), el('td', {}, release));
+    }));
+    if (!orders.length) $('bn-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 8, class: 'empty' }, 'No bundle purchases yet.')));
   } catch (e) { fail(e); }
 }
 
