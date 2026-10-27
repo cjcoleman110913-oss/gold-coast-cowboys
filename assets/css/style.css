@@ -647,3 +647,8 @@ footer{
 .banner p:first-child{ color:var(--cream); font-family:var(--display); font-size:1.15rem; }
 .banner .btn{ justify-self:start; margin-top:6px; }
 [hidden]{ display:none !important; }
+
+.gt-buy{margin-top:18px;font-family:var(--mono);letter-spacing:.25em;text-transform:uppercase;font-size:.8rem;padding:14px 18px;background:var(--c);color:#0b0b0b;border:1px solid var(--c);cursor:pointer;transition:filter .15s}
+.gt-buy:hover:not(:disabled){filter:brightness(1.12)}
+.gt-buy:disabled{background:transparent;color:var(--c);opacity:.6;cursor:not-allowed}
+.gt-left{font-family:var(--mono);letter-spacing:.2em;text-transform:uppercase;font-size:.68rem;color:var(--c);margin:10px 0 0}

@@ -38,6 +38,7 @@ function showTab(name) {
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.tab').forEach((t) => { t.hidden = t.id !== 'tab-' + name; });
   if (name === 'buyers') loadBuyers();
+  if (name === 'bundles') loadBundles();
   if (name === 'redemptions') loadRedemptions();
   if (name === 'listings') loadListings();
   if (name === 'team') loadTeam();
@@ -174,6 +175,29 @@ async function loadBuyers() {
       el('td', {}, o.title), el('td', {}, o.pass_name || ''), el('td', {}, money(o.amount_cents)),
       el('td', {}, el('span', { class: 'status ' + o.status }, o.status)))));
     if (!orders.length) $('b-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'No entrants match yet.')));
+  } catch (e) { fail(e); }
+}
+
+// ---------- bundles ----------
+$('bn-bundle').addEventListener('change', loadBundles);
+$('bn-status').addEventListener('change', loadBundles);
+async function loadBundles() {
+  try {
+    const q = {};
+    if ($('bn-bundle').value) q.bundle = $('bn-bundle').value;
+    if ($('bn-status').value) q.status = $('bn-status').value;
+    const { bundles, orders } = await api('bundles', { query: q });
+    $('bn-csv').href = '/api/admin/bundles-csv?' + new URLSearchParams(q);
+    $('bn-cards').replaceChildren(...bundles.map((b) => el('div', { class: 'bundle-card' },
+      el('strong', {}, b.name), el('span', {}, money(b.priceCents)),
+      el('span', {}, b.cap == null ? 'No limit' : `${b.cap - b.remaining} of ${b.cap} taken`))));
+    const paid = orders.filter((o) => o.status === 'paid');
+    $('bn-summary').textContent = `${orders.length} order${orders.length === 1 ? '' : 's'} shown · ${paid.length} paid · ${money(paid.reduce((s, o) => s + o.amount_cents, 0))} collected`;
+    $('bn-table').tBodies[0].replaceChildren(...orders.map((o) => el('tr', {},
+      el('td', {}, fmt(o.paid_at || o.created_at)), el('td', {}, o.buyer_name), el('td', {}, el('a', { href: 'mailto:' + o.email }, o.email)),
+      el('td', {}, o.bundle_name), el('td', {}, money(o.amount_cents)),
+      el('td', {}, el('span', { class: 'status ' + o.status }, o.status)))));
+    if (!orders.length) $('bn-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'empty' }, 'No bundle purchases yet.')));
   } catch (e) { fail(e); }
 }
 

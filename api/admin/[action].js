@@ -5,6 +5,7 @@ import {
   startSession, endSession, requireAdmin, assertNotLocked, recordFailure, clearFailures
 } from '../../lib/auth.js';
 import { listCompetitions, ROLES } from '../../lib/passes.js';
+import { listBundles } from '../../lib/bundles.js';
 import crypto from 'node:crypto';
 
 const need = (req, method) => { if (req.method !== method) throw new HttpError(405, 'Method not allowed'); };
@@ -280,6 +281,31 @@ const actions = {
     send(res, 200, { orders: await fetchOrders(url(req).searchParams) });
   },
 
+  // ---------- season-pass bundles ----------
+  async bundles(req, res) {
+    need(req, 'GET');
+    await requireAdmin(req);
+    send(res, 200, { bundles: await listBundles(), orders: await fetchBundleOrders(url(req).searchParams) });
+  },
+
+  async 'bundles-csv'(req, res) {
+    need(req, 'GET');
+    await requireAdmin(req);
+    const rows = await fetchBundleOrders(url(req).searchParams);
+    const esc = (v) => {
+      let s = String(v ?? '');
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [['Order', 'Status', 'Name', 'Email', 'Bundle', 'Amount (USD)', 'Paid at'].join(',')].concat(rows.map((o) => [
+      o.id, o.status, o.buyer_name, o.email, o.bundle_name, (o.amount_cents / 100).toFixed(2), o.paid_at ? new Date(o.paid_at).toISOString() : ''
+    ].map(esc).join(',')));
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="gcc-bundles.csv"');
+    res.end(lines.join('\n'));
+  },
+
   // ---------- pass / voucher redemptions ----------
   async redemptions(req, res) {
     need(req, 'GET');
@@ -359,6 +385,22 @@ const actions = {
     res.end(lines.join('\n'));
   }
 };
+
+async function fetchBundleOrders(sp) {
+  const params = [];
+  const where = [];
+  const status = sp.get('status');
+  if (status && status !== 'all') { params.push(status); where.push(`o.status = $${params.length}`); }
+  else if (!status) where.push(`o.status IN ('paid','refunded')`);
+  const slug = sp.get('bundle');
+  if (slug) { params.push(slug); where.push(`o.bundle_slug = $${params.length}`); }
+  const { rows } = await query(
+    `SELECT o.id, o.status, o.buyer_name, o.email, o.amount_cents, o.paid_at, o.created_at, o.bundle_slug, b.name AS bundle_name
+       FROM bundle_orders o JOIN bundles b ON b.slug = o.bundle_slug
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY COALESCE(o.paid_at, o.created_at) DESC LIMIT 5000`, params);
+  return rows;
+}
 
 async function fetchRedemptions(sp) {
   const status = sp.get('status');

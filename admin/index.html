@@ -16,6 +16,7 @@
     <nav class="admin-tabs" id="tabs">
       <button data-tab="competitions" class="active">Competitions</button>
       <button data-tab="buyers">Entrants</button>
+      <button data-tab="bundles">Bundles</button>
       <button data-tab="redemptions">Redemptions</button>
       <button data-tab="listings">Listings</button>
       <button data-tab="team">Team</button>
@@ -73,6 +74,18 @@
     <p id="b-summary" class="hint"></p>
     <div class="table-wrap"><table id="b-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Competition</th><th>Entry</th><th>Paid</th><th>Status</th></tr></thead><tbody></tbody></table></div>
     <p class="hint">To refund someone, issue the refund in your Stripe dashboard. It will show up here as “refunded” automatically and free up their spot. If someone wins a pass to an event, they submit it through the Redemptions form.</p>
+  </section>
+
+  <section id="tab-bundles" class="tab" hidden>
+    <div class="tab-head"><h1>Season pass bundles</h1><a class="btn" id="bn-csv" href="#">Download CSV</a></div>
+    <div id="bn-cards" class="bundle-cards"></div>
+    <div class="filters">
+      <label>Bundle<select id="bn-bundle"><option value="">All bundles</option><option value="bronze">Bronze</option><option value="silver">Silver</option><option value="gold">Gold</option></select></label>
+      <label>Show<select id="bn-status"><option value="">Paid &amp; refunded</option><option value="paid">Paid only</option><option value="refunded">Refunded only</option><option value="pending">Pending checkouts</option><option value="all">Everything</option></select></label>
+    </div>
+    <p id="bn-summary" class="hint"></p>
+    <div class="table-wrap"><table id="bn-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Bundle</th><th>Paid</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    <p class="hint">To refund someone, issue the refund in your Stripe dashboard. It will show up here as “refunded” automatically and free up their spot.</p>
   </section>
 
   <section id="tab-redemptions" class="tab" hidden>

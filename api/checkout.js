@@ -2,12 +2,64 @@ import { wrap, send, readJson, HttpError, EMAIL_RE, origin } from '../lib/http.j
 import { tx, query } from '../lib/db.js';
 import { getStripe } from '../lib/stripe.js';
 import { currentPriceCents } from '../lib/passes.js';
+import { listBundles } from '../lib/bundles.js';
 
 const HOLD_MINUTES = 32; // Stripe sessions must live >= 30 min; hold the spot a bit longer
 
+// Season-pass bundles (Bronze / Silver / Gold): same flow, separate tables.
+async function bundleCheckout(req, res, body) {
+  const slug = String(body.bundle || '').toLowerCase();
+  const name = String(body.name || '').trim().slice(0, 120);
+  const email = String(body.email || '').trim().toLowerCase().slice(0, 200);
+  if (!name) throw new HttpError(400, 'Please enter your name.');
+  if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Please enter a valid email.');
+
+  const order = await tx(async (db) => {
+    const { rows } = await db.query(`SELECT * FROM bundles WHERE slug = $1 FOR UPDATE`, [slug]);
+    const b = rows[0];
+    if (!b) throw new HttpError(404, 'That pass is not available.');
+    if (b.cap != null) {
+      const { rows: [{ n }] } = await db.query(
+        `SELECT count(*)::int AS n FROM bundle_orders WHERE bundle_slug = $1
+          AND (status = 'paid' OR (status = 'pending' AND expires_at > now()))`, [slug]);
+      if (n >= b.cap) throw new HttpError(409, 'Sorry, this pass is sold out.');
+    }
+    const { rows: [o] } = await db.query(
+      `INSERT INTO bundle_orders (bundle_slug, email, buyer_name, amount_cents, status, expires_at)
+       VALUES ($1,$2,$3,$4,'pending', now() + ($5 || ' minutes')::interval) RETURNING id`,
+      [slug, email, name, b.price_cents, String(HOLD_MINUTES)]);
+    return { id: o.id, amount: b.price_cents, b };
+  });
+
+  const base = origin(req);
+  try {
+    const session = await getStripe().checkout.sessions.create({
+      mode: 'payment',
+      customer_email: email,
+      client_reference_id: `bundle-${order.id}`,
+      line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount,
+        product_data: { name: `Gold Coast Cowboys 2027 Season Pass: ${order.b.name}`.slice(0, 250),
+          description: 'Boots on the Coast, St. Louis Stomp and Tails California' } } }],
+      metadata: { bundle_order_id: String(order.id) },
+      payment_intent_data: { metadata: { bundle_order_id: String(order.id) } },
+      expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
+      success_url: `${base}/pass-success.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/index.html#season-passes`
+    });
+    await query('UPDATE bundle_orders SET stripe_session_id = $1 WHERE id = $2', [session.id, order.id]);
+    send(res, 200, { url: session.url });
+  } catch (e) {
+    await query(`UPDATE bundle_orders SET status = 'expired' WHERE id = $1`, [order.id]);
+    console.error('Stripe bundle checkout failed', e);
+    throw new HttpError(502, 'Could not start checkout. Please try again.');
+  }
+}
+
 export default wrap(async (req, res) => {
+  if (req.method === 'GET') return send(res, 200, { bundles: await listBundles() }); // availability for the home page
   if (req.method !== 'POST') throw new HttpError(405, 'Method not allowed');
   const body = await readJson(req);
+  if (body.bundle) return bundleCheckout(req, res, body);
   const passTypeId = Number.parseInt(body.passTypeId, 10);
   const name = String(body.name || '').trim().slice(0, 120);
   const email = String(body.email || '').trim().toLowerCase().slice(0, 200);

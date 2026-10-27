@@ -428,3 +428,41 @@ test('logout clears session', async () => {
   await c.req('POST', '/api/admin/login', { email: 'cj@x.com', password: PW });
   assert.equal((await c.req('POST', '/api/admin/logout', {})).status, 200);
 });
+
+test('bundles: availability, checkout, caps, webhook, admin tab', async () => {
+  const anon = new Client();
+  const list = await anon.req('GET', '/api/checkout');
+  assert.deepEqual(list.json.bundles.map((b) => [b.slug, b.priceCents, b.cap]), [['bronze', 59900, 20], ['silver', 69900, 15], ['gold', 84900, 10]]);
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'platinum', name: 'A', email: 'a@x.com' })).status, 404);
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'gold', name: '', email: 'a@x.com' })).status, 400);
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'gold', name: 'A', email: 'nope' })).status, 400);
+  const sent = []; setMailer(async (m) => { sent.push(m); });
+  // price is server-side: client-sent amount is ignored
+  const r = await anon.req('POST', '/api/checkout', { bundle: 'gold', name: 'Gina Gold', email: 'gina@x.com', amount: 1 });
+  assert.equal(r.status, 200);
+  const sess = [...S.stripe.sessions.values()].at(-1);
+  assert.equal(sess.line_items[0].price_data.unit_amount, 84900);
+  const { rows: [o] } = await S.db.query(`SELECT id, stripe_session_id sid FROM bundle_orders ORDER BY id DESC LIMIT 1`);
+  assert.equal((await anon.req('GET', '/api/order-status?session_id=' + o.sid)).json.status, 'pending');
+  assert.equal(await pay(o.sid), 200);
+  const st = await anon.req('GET', '/api/order-status?session_id=' + o.sid);
+  assert.equal(st.json.status, 'paid'); assert.match(st.json.bundle, /Gold/);
+  assert.ok(sent.some((m) => m.to === 'gina@x.com'), 'buyer confirmation email');
+  assert.ok(sent.some((m) => m.to === 'dance@goldcoastcowboys.com'), 'team email');
+  // cap of 10 for gold: 1 paid, fill the rest with pending holds
+  for (let i = 0; i < 9; i++) assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'gold', name: 'G' + i, email: `g${i}@x.com` })).status, 200);
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'gold', name: 'Late', email: 'late@x.com' })).status, 409);
+  assert.equal((await anon.req('GET', '/api/checkout')).json.bundles.find((b) => b.slug === 'gold').soldOut, true);
+  // admin tab
+  assert.equal((await new Client().req('GET', '/api/admin/bundles')).status, 401);
+  const a = await owner.req('GET', '/api/admin/bundles');
+  assert.equal(a.status, 200);
+  assert.equal(a.json.orders.length, 1); assert.equal(a.json.orders[0].email, 'gina@x.com');
+  assert.equal(a.json.bundles.find((b) => b.slug === 'gold').remaining, 0);
+  assert.match((await owner.req('GET', '/api/admin/bundles-csv')).text, /gina@x.com/);
+  // refund frees the spot
+  assert.equal(await pay(o.sid, 'charge.refunded'), 200);
+  assert.equal((await S.db.query('SELECT status FROM bundle_orders WHERE id=$1', [o.id])).rows[0].status, 'refunded');
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'gold', name: 'Late', email: 'late@x.com' })).status, 200);
+  setMailer(null);
+});

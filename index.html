@@ -67,6 +67,7 @@
           <li>Strictly ticket to all 3 events</li>
         </ul>
         <p class="gt-limit">Limited to 20 tickets</p>
+        <button type="button" class="gt-buy" data-bundle="bronze">Buy Bronze</button>
       </article>
       <article class="gt-card gt-silver">
         <div class="gt-star">&#9733;</div>
@@ -81,6 +82,7 @@
           <li>Event bandana at each event</li>
         </ul>
         <p class="gt-limit">Limited to 15 tickets</p>
+        <button type="button" class="gt-buy" data-bundle="silver">Buy Silver</button>
       </article>
       <article class="gt-card gt-gold">
         <div class="gt-star">&#9733;</div>
@@ -95,12 +97,27 @@
           <li>Exclusive 2027 GCC special edition merch</li>
         </ul>
         <p class="gt-limit">Limited to 10 tickets</p>
+        <button type="button" class="gt-buy" data-bundle="gold">Buy Gold</button>
       </article>
     </div>
     <p class="gt-foot"><span></span>Boots on the Coast &bull; St. Louis Stomp &bull; Tails California<span></span></p>
   </div>
 </section>
 
+
+<dialog id="bundle-dialog" class="buy-dialog">
+  <form method="dialog" id="bundle-form" class="buy-form">
+    <h3 id="bundle-title">Season pass</h3>
+    <p id="bundle-sub" class="buy-sub"></p>
+    <label>Your name<input name="name" required maxlength="120" autocomplete="name"></label>
+    <label>Email<input name="email" type="email" required maxlength="200" autocomplete="email"></label>
+    <p id="bundle-error" class="buy-error" role="alert" hidden></p>
+    <div class="buy-actions">
+      <button type="button" class="btn" id="bundle-cancel">Cancel</button>
+      <button type="submit" class="btn solid" id="bundle-submit">Continue to payment</button>
+    </div>
+  </form>
+</dialog>
 
 <section style="background:var(--bg-raise); border-top:1px solid var(--line); border-bottom:1px solid var(--line);">
   <div class="wrap about-block">
@@ -326,5 +343,6 @@
 
 <script src="assets/js/main.js"></script>
 <script src="assets/js/home.js"></script>
+<script src="assets/js/bundles.js"></script>
 </body>
 </html>
