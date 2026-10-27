@@ -16,7 +16,8 @@
   load().then(function (d) {
     buttons.forEach(function (btn) {
       var b = info[btn.dataset.bundle];
-      if (b && b.soldOut) { btn.disabled = true; btn.textContent = 'Sold out'; }
+      if (b && b.saleEnded) { btn.disabled = true; btn.textContent = 'Sale ended'; }
+      else if (b && b.soldOut) { btn.disabled = true; btn.textContent = 'Sold out'; }
       else if (b && b.remaining != null && b.remaining <= 5) {
         var note = document.createElement('p'); note.className = 'gt-left';
         note.textContent = 'Only ' + b.remaining + ' left'; btn.after(note);

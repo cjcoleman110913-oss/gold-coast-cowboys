@@ -594,3 +594,11 @@ test('terms: page is served verbatim; acceptance is recorded; admin cancels a pl
   assert.match((await owner.req('GET', '/api/admin/bundles-csv?status=all')).text, /cam@x.com.*canceled/);
   setMailer(null);
 });
+
+test('bundles: sales close after May 26, 2027', async () => {
+  const { SALE_ENDS_AT, saleOpen } = await import('../lib/bundles.js');
+  assert.equal(saleOpen(new Date('2027-05-26T23:30:00-05:00')), true, 'still open late on the 26th (Central)');
+  assert.equal(saleOpen(new Date('2027-05-27T00:30:00-05:00')), false, 'closed once the 26th is over');
+  assert.equal(SALE_ENDS_AT.toISOString(), '2027-05-27T05:00:00.000Z');
+  assert.equal((await new Client().req('GET', '/api/checkout')).json.bundles[0].saleEnded, false);
+});

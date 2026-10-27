@@ -2,7 +2,7 @@ import { wrap, send, readJson, HttpError, EMAIL_RE, origin } from '../lib/http.j
 import { tx, query } from '../lib/db.js';
 import { getStripe } from '../lib/stripe.js';
 import { currentPriceCents } from '../lib/passes.js';
-import { listBundles, planOf, addMonths } from '../lib/bundles.js';
+import { listBundles, planOf, addMonths, saleOpen } from '../lib/bundles.js';
 import { TERMS_VERSION } from '../lib/terms.js';
 
 const HOLD_MINUTES = 32; // Stripe sessions must live >= 30 min; hold the spot a bit longer
@@ -11,6 +11,7 @@ const HOLD_MINUTES = 32; // Stripe sessions must live >= 30 min; hold the spot a
 async function bundleCheckout(req, res, body) {
   const slug = String(body.bundle || '').toLowerCase();
   const monthly = body.plan === 'monthly';
+  if (!saleOpen()) throw new HttpError(410, 'Season pass sales ended on May 26, 2027.');
   const name = String(body.name || '').trim().slice(0, 120);
   const email = String(body.email || '').trim().toLowerCase().slice(0, 200);
   if (!name) throw new HttpError(400, 'Please enter your name.');
