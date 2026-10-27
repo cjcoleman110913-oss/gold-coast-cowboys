@@ -2,7 +2,8 @@ import { wrap, send, readJson, HttpError, EMAIL_RE, origin } from '../lib/http.j
 import { tx, query } from '../lib/db.js';
 import { getStripe } from '../lib/stripe.js';
 import { currentPriceCents } from '../lib/passes.js';
-import { listBundles, planOf } from '../lib/bundles.js';
+import { listBundles, planOf, addMonths } from '../lib/bundles.js';
+import { TERMS_VERSION } from '../lib/terms.js';
 
 const HOLD_MINUTES = 32; // Stripe sessions must live >= 30 min; hold the spot a bit longer
 
@@ -14,6 +15,7 @@ async function bundleCheckout(req, res, body) {
   const email = String(body.email || '').trim().toLowerCase().slice(0, 200);
   if (!name) throw new HttpError(400, 'Please enter your name.');
   if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Please enter a valid email.');
+  if (monthly && body.acceptTerms !== true) throw new HttpError(400, 'Please agree to the Terms & Conditions to pay monthly.');
 
   const order = await tx(async (db) => {
     const { rows } = await db.query(`SELECT * FROM bundles WHERE slug = $1 FOR UPDATE`, [slug]);
@@ -29,10 +31,11 @@ async function bundleCheckout(req, res, body) {
     if (monthly && !plan) throw new HttpError(400, 'Monthly payments are not available for this pass.');
     const { rows: [o] } = await db.query(
       `INSERT INTO bundle_orders (bundle_slug, email, buyer_name, amount_cents, status, expires_at,
-                                  plan, plan_months, plan_monthly_cents, plan_total_cents, plan_status)
-       VALUES ($1,$2,$3,$4,'pending', now() + ($5 || ' minutes')::interval, $6,$7,$8,$9,$10) RETURNING id`,
+                                  plan, plan_months, plan_monthly_cents, plan_total_cents, plan_status, terms_version, terms_accepted_at)
+       VALUES ($1,$2,$3,$4,'pending', now() + ($5 || ' minutes')::interval, $6,$7,$8,$9,$10,$11, CASE WHEN $11::text IS NULL THEN NULL ELSE now() END) RETURNING id`,
       [slug, email, name, plan ? plan.downCents : b.price_cents, String(HOLD_MINUTES),
-       plan ? 'monthly' : 'full', plan?.months ?? null, plan?.monthlyCents ?? null, plan?.totalCents ?? null, plan ? 'active' : null]);
+       plan ? 'monthly' : 'full', plan?.months ?? null, plan?.monthlyCents ?? null, plan?.totalCents ?? null, plan ? 'active' : null,
+       plan ? TERMS_VERSION : null]);
     return { id: o.id, amount: plan ? plan.downCents : b.price_cents, b, plan };
   });
 
@@ -52,7 +55,7 @@ async function bundleCheckout(req, res, body) {
           line_items: [
             { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.monthlyCents, recurring: { interval: 'month' }, product_data: product(` (monthly payment, ${order.plan.months} total)`) } },
             { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.downCents, product_data: product(' (down payment)') } }],
-          subscription_data: { trial_period_days: 30, metadata: { bundle_order_id: String(order.id) } } }
+          subscription_data: { trial_end: Math.floor(addMonths(new Date(), 1).getTime() / 1000), metadata: { bundle_order_id: String(order.id) } } }
       : { mode: 'payment',
           line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount, product_data: product('') } }],
           payment_intent_data: { metadata: { bundle_order_id: String(order.id) } } };

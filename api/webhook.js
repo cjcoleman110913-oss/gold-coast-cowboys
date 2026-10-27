@@ -3,7 +3,7 @@ import { verifyWebhook, getStripe } from '../lib/stripe.js';
 import { query } from '../lib/db.js';
 import { notify, sendEmail } from '../lib/notify.js';
 import { renderEmail } from '../lib/email.js';
-import { money } from '../lib/bundles.js';
+import { money, paymentDates } from '../lib/bundles.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -28,9 +28,11 @@ async function bundleEmails(bo) {
         intro: [monthly ? 'Your down payment went through and your 2027 season pass is locked in. The rest is paid automatically each month.'
                         : 'Your payment went through and your 2027 season pass is locked in.'],
         details: [['Pass', label], [monthly ? 'Paid today' : 'Paid', paid],
-          ...(monthly ? [['Then', `${bo.plan_months} monthly payments of ${money(bo.plan_monthly_cents)}, starting in 30 days`], ['Plan total', `${money(bo.plan_total_cents)} (includes the 4% payment plan fee)`]] : []),
+          ...(monthly ? [['Then', `${bo.plan_months} monthly payments of ${money(bo.plan_monthly_cents)}`],
+            ['Payment dates', paymentDates(bo.plan_months, new Date(bo.created_at)).join(', ')], ['Plan total', `${money(bo.plan_total_cents)} (includes the 4% payment plan fee)`]] : []),
           ['Events', EVENTS_LINE]],
-        outro: ['We’ll email you the details for each event as they get closer. Questions? Just reply to this email.'] }) });
+        outro: [...(monthly ? [`You agreed to the Terms & Conditions at checkout: ${(process.env.SITE_URL || 'https://goldcoastcowboys.com').replace(/\/$/, '')}/terms.html. To cancel future payments, email dance@goldcoastcowboys.com with the subject “GCC All Access Pass Cancellation” and include your full name and purchase email.`] : []),
+          'We’ll email you the details for each event as they get closer. Questions? Just reply to this email.'] }) });
     await notify({ subject: `Season pass sold: ${label} (${bo.buyer_name})${monthly ? ' · monthly plan' : ''}`, replyTo: bo.email,
       ...renderEmail({ preheader: `${bo.buyer_name} bought ${label}.`, eyebrow: 'Season pass sold', heading: `${bo.buyer_name} bought ${label}`,
         details: [['Name', bo.buyer_name], ['Email', bo.email], ['Pass', label], ['Paid today', paid],
@@ -64,7 +66,7 @@ async function invoicePaid(inv) {
      ON CONFLICT (invoice_id) DO NOTHING RETURNING invoice_id`, [inv.id, o.id, kind, inv.amount_paid ?? 0]);
   if (!ins.length || kind === 'down') return;
   if ((inv.amount_paid ?? 0) === 0) return;
-  await query(`UPDATE bundle_orders SET plan_status = 'active' WHERE id = $1 AND plan_status = 'past_due'`, [o.id]);
+  await query(`UPDATE bundle_orders SET plan_status = 'active', plan_past_due_since = NULL WHERE id = $1 AND plan_status = 'past_due'`, [o.id]);
   const { rows: [{ n }] } = await query(`SELECT count(*)::int AS n FROM bundle_payments WHERE order_id = $1 AND kind = 'monthly'`, [o.id]);
   if (n < o.plan_months) return;
   // Last payment received: stop the subscription so they're never charged again.
@@ -98,7 +100,9 @@ async function invoicePaid(inv) {
 async function invoiceFailed(inv) {
   const o = await findPlanOrder(inv);
   if (!o || inv.billing_reason === 'subscription_create') return;
-  await query(`UPDATE bundle_orders SET plan_status = 'past_due' WHERE id = $1 AND plan_status = 'active'`, [o.id]);
+  await query(`UPDATE bundle_orders SET plan_status = 'past_due', plan_past_due_since = COALESCE(plan_past_due_since, now()) WHERE id = $1 AND plan_status IN ('active','past_due')`, [o.id]);
+  const { rows: [pd] } = await query('SELECT plan_past_due_since FROM bundle_orders WHERE id = $1', [o.id]);
+  const graceEnd = new Date(new Date(pd.plan_past_due_since).getTime() + 14 * 86400000).toISOString().slice(0, 10);
   const label = await bundleLabel(o.bundle_slug);
   const attempt = inv.attempt_count || 1;
   const amount = money(inv.amount_due ?? o.plan_monthly_cents);
@@ -106,14 +110,14 @@ async function invoiceFailed(inv) {
   await safely(async () => {
     await sendEmail({ to: o.email, subject: 'Your Gold Coast Cowboys payment didn’t go through',
       ...renderEmail({ preheader: 'We’ll try again, but you can update your card now.', eyebrow: 'Season pass', heading: 'Your payment didn’t go through',
-        intro: [`Hi ${first(o.buyer_name)}, your ${amount} monthly payment for the ${label} season pass failed. We’ll retry the card automatically, and you can also pay it right now.`],
-        details: [['Pass', label], ['Amount due', amount]],
+        intro: [`Hi ${first(o.buyer_name)}, your ${amount} monthly payment for the ${label} season pass failed. We’ll retry the card automatically, and you can also pay it right now. You have 14 days (until ${graceEnd}) to resolve it before your pass benefits are placed on hold. Once you’re current, benefits can be reinstated.`],
+        details: [['Pass', label], ['Amount due', amount], ['Resolve by', graceEnd]],
         ...(fixUrl ? { button: { label: 'Pay now / update card', url: fixUrl } } : {}),
         outro: ['If you’re having trouble, just reply to this email and we’ll help.'] }) });
     await notify({ subject: `PAYMENT FAILED: ${o.buyer_name} (${label})`, replyTo: o.email,
       ...renderEmail({ preheader: `${o.buyer_name}'s ${amount} payment failed (attempt ${attempt}).`, eyebrow: 'Payment failed', heading: `${o.buyer_name}’s payment failed`,
-        intro: ['Stripe will keep retrying the card automatically, and the buyer was emailed a link to pay or update their card. If every retry fails, you’ll get another alert when the plan is canceled.'],
-        details: [['Name', o.buyer_name], ['Email', o.email], ['Pass', label], ['Amount', amount], ['Attempt', String(attempt)]] }) });
+        intro: ['Stripe will keep retrying the card automatically, and the buyer was emailed a link to pay or update their card. Under the terms, they have a 14-day grace period; after that their pass benefits go on hold until they’re current (the Bundles tab flags this).'],
+        details: [['Name', o.buyer_name], ['Email', o.email], ['Pass', label], ['Amount', amount], ['Attempt', String(attempt)], ['Grace period ends', graceEnd]] }) });
   });
 }
 
@@ -125,7 +129,7 @@ async function subscriptionDeleted(sub) {
   const label = await bundleLabel(o.bundle_slug);
   await safely(() => notify({ subject: `PLAN CANCELED before payoff: ${o.buyer_name} (${label})`, replyTo: o.email,
     ...renderEmail({ preheader: `${o.buyer_name}'s plan was canceled with ${o.plan_months - n} payments left.`, eyebrow: 'Plan canceled', heading: `${o.buyer_name}’s plan was canceled`,
-      intro: ['The subscription ended before all payments were made (usually because the card failed every retry, or it was canceled in Stripe). Their spot is still held. Decide whether to follow up, refund, or release the spot in the Bundles tab.'],
+      intro: ['The subscription ended before all payments were made (the card failed every retry, or it was canceled in Stripe). Their spot is still held. Under the terms, future payments stop, no remaining balance is owed, and remaining benefits are forfeited. Follow up if you like, and release the spot in the Bundles tab when you’re ready.'],
       details: [['Name', o.buyer_name], ['Email', o.email], ['Pass', label], ['Monthly payments made', `${n} of ${o.plan_months}`]],
       button: { label: 'Open the Bundles tab', url: `${process.env.SITE_URL || 'https://goldcoastcowboys.com'}/admin/index.html` } }) }));
 }
@@ -145,7 +149,7 @@ export async function applyEvent(event) {
           `UPDATE bundle_orders SET status = 'paid', paid_at = now(), stripe_payment_intent = $2,
                   stripe_subscription_id = COALESCE($3, stripe_subscription_id)
             WHERE stripe_session_id = $1 AND status IN ('pending','expired')
-            RETURNING bundle_slug, buyer_name, email, amount_cents, plan, plan_months, plan_monthly_cents, plan_total_cents`, [obj.id, pi, sub]);
+            RETURNING bundle_slug, buyer_name, email, amount_cents, plan, plan_months, plan_monthly_cents, plan_total_cents, created_at`, [obj.id, pi, sub]);
         if (bo) await bundleEmails(bo);
       }
       break;

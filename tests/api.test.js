@@ -483,10 +483,16 @@ test('bundles: monthly payment plan (down payment, 7 payments, auto-stop, failur
   for (const b of pub) assert.ok(Math.abs(b.plan.totalCents - b.priceCents * 1.04) < 100, b.slug);
 
   const r = await anon.req('POST', '/api/checkout', { bundle: 'bronze', plan: 'monthly', name: 'Molly Monthly', email: 'molly@x.com' });
-  assert.equal(r.status, 200);
-  const sess = [...S.stripe.sessions.entries()].at(-1);
+  assert.equal(r.status, 400, 'monthly requires accepting the terms');
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'bronze', plan: 'monthly', acceptTerms: 'yes', name: 'M', email: 'm@x.com' })).status, 400, 'must be literally true');
+  const r2 = await anon.req('POST', '/api/checkout', { bundle: 'bronze', plan: 'monthly', acceptTerms: true, name: 'Molly Monthly', email: 'molly@x.com' });
+  assert.equal(r2.status, 200);
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'bronze', name: 'Full Pat', email: 'pat@x.com' })).status, 200, 'pay in full needs no terms checkbox');
+  const sess = [...S.stripe.sessions.entries()].filter(([, v]) => v.mode === 'subscription').at(-1);
   const p = sess[1];
-  assert.equal(p.mode, 'subscription'); assert.equal(p.subscription_data.trial_period_days, 30);
+  assert.equal(p.mode, 'subscription');
+  const firstPay = new Date(p.subscription_data.trial_end * 1000), dayMs = 86400000;
+  assert.ok(firstPay - Date.now() > 27 * dayMs && firstPay - Date.now() < 32 * dayMs, 'first installment is one month out');
   assert.deepEqual(p.line_items.map((l) => [l.price_data.unit_amount, !!l.price_data.recurring]), [[8200, true], [4900, false]]);
   const { rows: [o] } = await S.db.query(`SELECT * FROM bundle_orders WHERE stripe_session_id = $1`, [sess[0]]);
   assert.equal(o.plan, 'monthly'); assert.equal(o.amount_cents, 4900); assert.equal(o.plan_total_cents, 62300);
@@ -514,7 +520,7 @@ test('bundles: monthly payment plan (down payment, 7 payments, auto-stop, failur
 
   // failure path
   sent.length = 0;
-  await anon.req('POST', '/api/checkout', { bundle: 'silver', plan: 'monthly', name: 'Fay Failed', email: 'fay@x.com' });
+  await anon.req('POST', '/api/checkout', { bundle: 'silver', plan: 'monthly', acceptTerms: true, name: 'Fay Failed', email: 'fay@x.com' });
   const s2 = [...S.stripe.sessions.keys()].at(-1);
   await hook('checkout.session.completed', { id: s2, payment_status: 'paid', subscription: 'sub_f1' });
   const failInv = { id: 'in_f1', billing_reason: 'subscription_cycle', attempt_count: 2, amount_due: 8900, hosted_invoice_url: 'https://invoice.stripe.com/i/x', subscription: 'sub_f1' };
@@ -523,9 +529,11 @@ test('bundles: monthly payment plan (down payment, 7 payments, auto-stop, failur
   assert.equal(fo.plan_status, 'past_due');
   assert.ok(sent.some((m) => m.to === 'dance@goldcoastcowboys.com' && /PAYMENT FAILED/.test(m.subject)), 'Brian is alerted');
   assert.ok(sent.some((m) => m.to === 'fay@x.com' && /invoice\.stripe\.com/.test(m.html)), 'buyer gets a pay-now link');
+  assert.ok(sent.some((m) => m.to === 'fay@x.com' && /14 days/.test(m.text)), 'buyer is told about the 14-day grace period');
   // a later successful retry clears past_due
   await hook('invoice.paid', { ...failInv, id: 'in_f2', amount_paid: 8900 });
-  assert.equal((await S.db.query('SELECT plan_status FROM bundle_orders WHERE id=$1', [fo.id])).rows[0].plan_status, 'active');
+  assert.equal((await S.db.query('SELECT plan_status, plan_past_due_since FROM bundle_orders WHERE id=$1', [fo.id])).rows[0].plan_status, 'active');
+  assert.equal((await S.db.query('SELECT plan_past_due_since FROM bundle_orders WHERE id=$1', [fo.id])).rows[0].plan_past_due_since, null, 'past-due clock reset after paying');
   // retries exhausted: subscription canceled by Stripe -> alert + releasable
   sent.length = 0;
   await hook('invoice.payment_failed', { ...failInv, id: 'in_f3' });
@@ -546,6 +554,43 @@ test('bundles: monthly payment plan (down payment, 7 payments, auto-stop, failur
   const st = await anon.req('GET', '/api/order-status?session_id=' + sess[0]);
   assert.equal(st.json.plan.months, 7);
   // monthly not offered for an unknown bundle; client can't pick amounts
-  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'nope', plan: 'monthly', name: 'A', email: 'a@x.com' })).status, 404);
+  assert.equal((await anon.req('POST', '/api/checkout', { bundle: 'nope', plan: 'monthly', acceptTerms: true, name: 'A', email: 'a@x.com' })).status, 404);
+  setMailer(null);
+});
+
+test('terms: page is served verbatim; acceptance is recorded; admin cancels a plan and emails the buyer', async () => {
+  const page = await (await fetch(S.base + '/terms.html')).text();
+  for (const needle of ['Monthly Payment Terms &amp; Conditions', 'fourteen (14) calendar days', 'GCC All Access Pass Cancellation', 'non-refundable', 'State of California'])
+    assert.ok(page.includes(needle), needle);
+  const anon = new Client();
+  const sent = []; setMailer(async (m) => { sent.push(m); });
+  const r = await anon.req('POST', '/api/checkout', { bundle: 'bronze', plan: 'monthly', acceptTerms: true, name: 'Cam Cancel', email: 'cam@x.com' });
+  assert.equal(r.status, 200);
+  const sid = [...S.stripe.sessions.keys()].at(-1);
+  const hook = async (type, object) => {
+    const { default: Stripe } = await import('stripe');
+    const payload = JSON.stringify({ id: 'evt_' + Math.random(), type, data: { object } });
+    const header = Stripe.webhooks.generateTestHeaderString({ payload, secret: process.env.STRIPE_WEBHOOK_SECRET });
+    return (await fetch(`${S.base}/api/webhook`, { method: 'POST', headers: { 'stripe-signature': header, 'content-type': 'application/json' }, body: payload })).status;
+  };
+  await hook('checkout.session.completed', { id: sid, payment_status: 'paid', subscription: 'sub_c1' });
+  const { rows: [o] } = await S.db.query(`SELECT id, terms_version, terms_accepted_at FROM bundle_orders WHERE stripe_subscription_id = 'sub_c1'`);
+  assert.ok(o.terms_version && o.terms_accepted_at, 'acceptance recorded');
+  assert.ok(sent.some((m) => m.to === 'cam@x.com' && /Payment dates/.test(m.text) && /GCC All Access Pass Cancellation/.test(m.text) && /terms\.html/.test(m.text)));
+  // pay-in-full orders have no terms record
+  assert.equal((await S.db.query(`SELECT count(*)::int n FROM bundle_orders WHERE plan='full' AND terms_accepted_at IS NOT NULL`)).rows[0].n, 0);
+  // admin cancels on the buyer's request
+  assert.equal((await new Client().req('POST', '/api/admin/bundle-cancel-plan', { id: o.id })).status, 401);
+  sent.length = 0; S.stripe.canceled.length = 0;
+  assert.equal((await owner.req('POST', '/api/admin/bundle-cancel-plan', { id: o.id })).status, 200);
+  assert.deepEqual(S.stripe.canceled, ['sub_c1']);
+  assert.equal((await S.db.query('SELECT plan_status FROM bundle_orders WHERE id=$1', [o.id])).rows[0].plan_status, 'canceled');
+  assert.ok(sent.some((m) => m.to === 'cam@x.com' && /cancellation is confirmed/.test(m.subject) && /None/.test(m.text)), 'written confirmation');
+  assert.equal((await owner.req('POST', '/api/admin/bundle-cancel-plan', { id: o.id })).status, 409, 'cannot cancel twice');
+  // Stripe's follow-up "subscription deleted" event does not raise a second alert
+  sent.length = 0;
+  assert.equal(await hook('customer.subscription.deleted', { id: 'sub_c1' }), 200);
+  assert.equal(sent.length, 0);
+  assert.match((await owner.req('GET', '/api/admin/bundles-csv?status=all')).text, /cam@x.com.*canceled/);
   setMailer(null);
 });

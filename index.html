@@ -116,6 +116,10 @@
       <label class="plan-opt"><input type="radio" name="plan" value="full" checked><span><strong id="plan-full-title">Pay in full</strong><small id="plan-full-sub"></small></span></label>
       <label class="plan-opt" id="plan-monthly-opt"><input type="radio" name="plan" value="monthly"><span><strong id="plan-monthly-title">Pay monthly</strong><small id="plan-monthly-sub"></small></span></label>
     </fieldset>
+    <div id="plan-terms" hidden>
+      <p id="plan-schedule" class="plan-schedule"></p>
+      <label class="terms-check"><input type="checkbox" name="acceptTerms"><span>I have read and agree to the <a href="terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a>, including the payment schedule above.</span></label>
+    </div>
     <p id="bundle-error" class="buy-error" role="alert" hidden></p>
     <div class="buy-actions">
       <button type="button" class="btn" id="bundle-cancel">Cancel</button>

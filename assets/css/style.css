@@ -660,3 +660,15 @@ footer{
 .plan-opt span{display:grid;gap:4px}
 .plan-opt small{color:var(--cream-dim);font-size:.85rem;line-height:1.4}
 .plan-opt:has(input:checked){border-color:var(--cream)}
+
+.plan-schedule{margin:0 0 10px;font-size:.85rem;line-height:1.5;color:var(--cream-dim)}
+.buy-form .terms-check{display:flex;gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font-family:var(--body);font-size:.9rem;color:var(--cream);cursor:pointer}
+.buy-form .terms-check input{width:auto;margin-top:4px;padding:0}
+.terms-check a{color:var(--cream);text-decoration:underline}
+.terms{max-width:760px;margin:0 auto}
+.terms h2{font-size:1.4rem;margin:2.2em 0 .6em}
+.terms p,.terms li{line-height:1.7;color:var(--cream)}
+.terms ul,.terms ol{padding-left:1.4em;display:grid;gap:.5em;margin:0 0 1em}
+.terms-eff{font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;font-size:.8rem;color:var(--cream-dim)}
+.terms a{color:var(--cream);text-decoration:underline}
+.terms .sign{margin-top:2.5em;font-family:var(--mono);letter-spacing:.15em;text-transform:uppercase}

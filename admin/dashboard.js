@@ -197,13 +197,17 @@ async function loadBundles() {
     $('bn-table').tBodies[0].replaceChildren(...orders.map((o) => {
       const monthly = o.plan === 'monthly';
       const paidSoFar = monthly ? o.plan_paid_cents : o.amount_cents;
-      const planCell = monthly ? `Monthly: ${o.monthly_paid} of ${o.plan_months} paid` + (o.plan_status ? ` · ${PLAN_LABEL[o.plan_status] || o.plan_status}` : '') : 'Paid in full';
+      const daysLate = o.plan_past_due_since ? Math.floor((Date.now() - new Date(o.plan_past_due_since)) / 86400000) : 0;
+      const onHold = monthly && o.plan_status === 'past_due' && daysLate >= 14;
+      const planCell = monthly ? `Monthly: ${o.monthly_paid} of ${o.plan_months} paid` + (o.plan_status ? ` · ${onHold ? 'BENEFITS ON HOLD' : PLAN_LABEL[o.plan_status] || o.plan_status}` : '') + (o.plan_status === 'past_due' ? ` (${daysLate} day${daysLate === 1 ? '' : 's'} late)` : '') : 'Paid in full';
+      const cancel = monthly && (o.plan_status === 'active' || o.plan_status === 'past_due')
+        ? el('button', { class: 'btn', onclick: async () => { if (!confirm('Cancel future payments for ' + o.buyer_name + '? They will owe nothing more and forfeit remaining benefits. This emails them a confirmation.')) return; try { await api('bundle-cancel-plan', { method: 'POST', body: { id: o.id } }); loadBundles(); } catch (e) { fail(e); } } }, 'Cancel plan') : '';
       const release = monthly && o.plan_status === 'canceled' && o.status === 'paid'
         ? el('button', { class: 'btn', onclick: async () => { if (!confirm('Release this spot? They will no longer count toward the limit.')) return; try { await api('bundle-release', { method: 'POST', body: { id: o.id } }); loadBundles(); } catch (e) { fail(e); } } }, 'Release spot') : '';
       return el('tr', {},
         el('td', {}, fmt(o.paid_at || o.created_at)), el('td', {}, o.buyer_name), el('td', {}, el('a', { href: 'mailto:' + o.email }, o.email)),
         el('td', {}, o.bundle_name), el('td', {}, planCell), el('td', {}, money(paidSoFar) + (monthly ? ' of ' + money(o.plan_total_cents) : '')),
-        el('td', {}, el('span', { class: 'status ' + (o.plan_status === 'past_due' || o.plan_status === 'canceled' ? 'pending' : o.status) }, o.status)), el('td', {}, release));
+        el('td', {}, el('span', { class: 'status ' + (o.plan_status === 'past_due' || o.plan_status === 'canceled' ? 'pending' : o.status) }, o.status)), el('td', {}, cancel, release));
     }));
     if (!orders.length) $('bn-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 8, class: 'empty' }, 'No bundle purchases yet.')));
   } catch (e) { fail(e); }

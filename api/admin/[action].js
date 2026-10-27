@@ -6,6 +6,9 @@ import {
 } from '../../lib/auth.js';
 import { listCompetitions, ROLES } from '../../lib/passes.js';
 import { listBundles } from '../../lib/bundles.js';
+import { getStripe } from '../../lib/stripe.js';
+import { sendEmail } from '../../lib/notify.js';
+import { renderEmail } from '../../lib/email.js';
 import crypto from 'node:crypto';
 
 const need = (req, method) => { if (req.method !== method) throw new HttpError(405, 'Method not allowed'); };
@@ -288,6 +291,28 @@ const actions = {
     send(res, 200, { bundles: await listBundles(), orders: await fetchBundleOrders(url(req).searchParams) });
   },
 
+  // Customer asked to cancel by email: stop future charges (the terms say GCC handles this, not the buyer).
+  async 'bundle-cancel-plan'(req, res) {
+    need(req, 'POST');
+    await requireAdmin(req);
+    const id = Number.parseInt((await readJson(req)).id, 10);
+    if (!Number.isInteger(id)) throw new HttpError(400, 'Invalid request.');
+    const { rows: [o] } = await query(`SELECT * FROM bundle_orders WHERE id = $1 AND plan = 'monthly' AND plan_status IN ('active','past_due')`, [id]);
+    if (!o) throw new HttpError(409, 'That plan can’t be canceled (already canceled, paid off, or not a monthly plan).');
+    if (o.stripe_subscription_id) {
+      try { await getStripe().subscriptions.cancel(o.stripe_subscription_id); }
+      catch (e) { console.error('cancel failed', e); throw new HttpError(502, 'Stripe would not cancel it. Check the subscription in Stripe.'); }
+    }
+    await query(`UPDATE bundle_orders SET plan_status = 'canceled' WHERE id = $1`, [id]);
+    const { rows: [{ name }] } = await query('SELECT name FROM bundles WHERE slug = $1', [o.bundle_slug]);
+    await sendEmail({ to: o.email, subject: 'Your GCC All Access Pass cancellation is confirmed',
+      ...renderEmail({ preheader: 'Future payments have been stopped.', eyebrow: 'Season pass', heading: 'Your plan has been canceled',
+        intro: [`Hi ${String(o.buyer_name).split(' ')[0]}, we’ve processed your cancellation for the ${name} pass.`],
+        details: [['Future payments', 'Stopped'], ['Remaining balance owed', 'None'], ['Remaining pass benefits', 'Forfeited'], ['Amounts already paid', 'Non-refundable, except where required by law']],
+        outro: ['As described in the Terms & Conditions you accepted. You’re welcome to buy a new pass in the future, subject to availability. Questions? Just reply to this email.'] }) });
+    send(res, 200, { ok: true });
+  },
+
   // Free up a spot held by a canceled / abandoned payment plan.
   async 'bundle-release'(req, res) {
     need(req, 'POST');
@@ -309,9 +334,10 @@ const actions = {
       if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const lines = [['Order', 'Status', 'Name', 'Email', 'Bundle', 'Plan', 'Monthly payments made', 'Plan status', 'Paid so far (USD)', 'Plan total (USD)', 'Paid at'].join(',')].concat(rows.map((o) => [
+    const lines = [['Order', 'Status', 'Name', 'Email', 'Bundle', 'Plan', 'Monthly payments made', 'Plan status', 'Past due since', 'Terms accepted', 'Paid so far (USD)', 'Plan total (USD)', 'Paid at'].join(',')].concat(rows.map((o) => [
       o.id, o.status, o.buyer_name, o.email, o.bundle_name, o.plan === 'monthly' ? 'Monthly' : 'Full',
       o.plan === 'monthly' ? `${o.monthly_paid} of ${o.plan_months}` : '', o.plan_status || '',
+      o.plan_past_due_since ? new Date(o.plan_past_due_since).toISOString() : '', o.terms_accepted_at ? `${new Date(o.terms_accepted_at).toISOString()} (v${o.terms_version})` : '',
       ((o.plan === 'monthly' ? o.plan_paid_cents : o.amount_cents) / 100).toFixed(2),
       o.plan === 'monthly' ? (o.plan_total_cents / 100).toFixed(2) : (o.amount_cents / 100).toFixed(2),
       o.paid_at ? new Date(o.paid_at).toISOString() : ''
@@ -412,7 +438,7 @@ async function fetchBundleOrders(sp) {
   if (slug) { params.push(slug); where.push(`o.bundle_slug = $${params.length}`); }
   const { rows } = await query(
     `SELECT o.id, o.status, o.buyer_name, o.email, o.amount_cents, o.paid_at, o.created_at, o.bundle_slug, b.name AS bundle_name,
-            o.plan, o.plan_months, o.plan_monthly_cents, o.plan_total_cents, o.plan_status,
+            o.plan, o.plan_months, o.plan_monthly_cents, o.plan_total_cents, o.plan_status, o.plan_past_due_since, o.terms_version, o.terms_accepted_at,
             (SELECT count(*)::int FROM bundle_payments p WHERE p.order_id = o.id AND p.kind = 'monthly') AS monthly_paid,
             (SELECT COALESCE(sum(p.amount_cents),0)::int FROM bundle_payments p WHERE p.order_id = o.id) AS plan_paid_cents
        FROM bundle_orders o JOIN bundles b ON b.slug = o.bundle_slug

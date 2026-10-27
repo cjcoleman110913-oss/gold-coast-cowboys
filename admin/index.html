@@ -85,7 +85,7 @@
     </div>
     <p id="bn-summary" class="hint"></p>
     <div class="table-wrap"><table id="bn-table"><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Bundle</th><th>Plan</th><th>Paid so far</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
-    <p class="hint">Monthly plans stop on their own after the last payment. A plan marked <strong>past due</strong> is being retried automatically; <strong>canceled</strong> means the card kept failing or it was canceled in Stripe, and you can release its spot here. To refund someone, issue the refund in your Stripe dashboard.</p>
+    <p class="hint">Monthly plans stop on their own after the last payment. A plan marked <strong>past due</strong> is being retried automatically; after 14 days late the tab shows <strong>benefits on hold</strong> (per the terms) until they pay. When a buyer emails to cancel, use <strong>Cancel plan</strong>: it stops their Stripe payments and emails them the confirmation. <strong>Canceled</strong> plans can have their spot released. To refund someone, issue the refund in your Stripe dashboard.</p>
   </section>
 
   <section id="tab-redemptions" class="tab" hidden>
