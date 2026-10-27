@@ -41,6 +41,10 @@ export async function startServer({ port = 0 } = {}) {
   // `failNext` lives on the object; bind create so `this` works.
   stripe.checkout.sessions.create = stripe.checkout.sessions.create.bind(stripe);
   stripe.subscriptions.cancel = async (id) => { stripe.canceled.push(id); return { id }; };
+  stripe.created = [];
+  stripe.paymentIntents = { retrieve: async (id) => ({ id, payment_method: 'pm_test_1' }) };
+  stripe.products = { create: async () => ({ id: 'prod_test_1' }) };
+  stripe.subscriptions.create = async (params) => { const id = stripe.nextSub || `sub_auto_${stripe.created.length + 1}`; stripe.nextSub = null; stripe.created.push(params); return { id }; };
   setStripe(stripe);
 
   const routes = {

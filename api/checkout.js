@@ -2,7 +2,7 @@ import { wrap, send, readJson, HttpError, EMAIL_RE, origin } from '../lib/http.j
 import { tx, query } from '../lib/db.js';
 import { getStripe } from '../lib/stripe.js';
 import { currentPriceCents } from '../lib/passes.js';
-import { listBundles, planOf, addMonths, saleOpen } from '../lib/bundles.js';
+import { listBundles, planOf, paymentDates, saleOpen } from '../lib/bundles.js';
 import { TERMS_VERSION } from '../lib/terms.js';
 
 const HOLD_MINUTES = 32; // Stripe sessions must live >= 30 min; hold the spot a bit longer
@@ -33,11 +33,11 @@ async function bundleCheckout(req, res, body) {
     const { rows: [o] } = await db.query(
       `INSERT INTO bundle_orders (bundle_slug, email, buyer_name, amount_cents, status, expires_at,
                                   plan, plan_months, plan_monthly_cents, plan_total_cents, plan_status, terms_version, terms_accepted_at)
-       VALUES ($1,$2,$3,$4,'pending', now() + ($5 || ' minutes')::interval, $6,$7,$8,$9,$10,$11, CASE WHEN $11::text IS NULL THEN NULL ELSE now() END) RETURNING id`,
+       VALUES ($1,$2,$3,$4,'pending', now() + ($5 || ' minutes')::interval, $6,$7,$8,$9,$10,$11, CASE WHEN $11::text IS NULL THEN NULL ELSE now() END) RETURNING id, created_at`,
       [slug, email, name, plan ? plan.downCents : b.price_cents, String(HOLD_MINUTES),
        plan ? 'monthly' : 'full', plan?.months ?? null, plan?.monthlyCents ?? null, plan?.totalCents ?? null, plan ? 'active' : null,
        plan ? TERMS_VERSION : null]);
-    return { id: o.id, amount: plan ? plan.downCents : b.price_cents, b, plan };
+    return { id: o.id, amount: plan ? plan.downCents : b.price_cents, b, plan, createdAt: new Date(o.created_at) };
   });
 
   const base = origin(req);
@@ -49,15 +49,16 @@ async function bundleCheckout(req, res, body) {
       client_reference_id: `bundle-${order.id}`,
       metadata: { bundle_order_id: String(order.id) },
     };
-    // Monthly plan: down payment now (one-time item), then a monthly subscription whose first charge is one month out.
-    // billing_cycle_anchor (not a free trial) so Stripe's page never says "free trial"; proration none = no charge for the gap.
-    // The webhook cancels the subscription after the last payment.
+    // Monthly plan: Checkout charges only the down payment (a normal one-time payment) and saves the card.
+    // The webhook then creates the monthly subscription, first charge one month out, so Stripe's page
+    // never says "free trial".
+    const sched = order.plan ? paymentDates(order.plan.months, order.createdAt) : [];
+    const fmtD = (iso) => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
     const mode = order.plan
-      ? { mode: 'subscription',
-          line_items: [
-            { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.monthlyCents, recurring: { interval: 'month' }, product_data: product(` (monthly payment, ${order.plan.months} total)`) } },
-            { quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.downCents, product_data: product(' (down payment)') } }],
-          subscription_data: { billing_cycle_anchor: Math.floor(addMonths(new Date(), 1).getTime() / 1000), proration_behavior: 'none', metadata: { bundle_order_id: String(order.id) } } }
+      ? { mode: 'payment', customer_creation: 'always',
+          line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.plan.downCents, product_data: product(' (down payment)') } }],
+          payment_intent_data: { setup_future_usage: 'off_session', metadata: { bundle_order_id: String(order.id) } },
+          custom_text: { submit: { message: `Payment plan: $${(order.plan.downCents / 100).toFixed(2)} today, then $${(order.plan.monthlyCents / 100).toFixed(2)} charged automatically on ${sched.map(fmtD).join(', ')} (${order.plan.months} payments, total $${(order.plan.totalCents / 100).toFixed(2)}). Cancel future payments any time by emailing dance@goldcoastcowboys.com.` } } }
       : { mode: 'payment',
           line_items: [{ quantity: 1, price_data: { currency: 'usd', unit_amount: order.amount, product_data: product('') } }],
           payment_intent_data: { metadata: { bundle_order_id: String(order.id) } } };
@@ -73,7 +74,7 @@ async function bundleCheckout(req, res, body) {
     await query(`UPDATE bundle_orders SET status = 'expired' WHERE id = $1`, [order.id]);
     console.error('Stripe bundle checkout failed', e);
     // TEMPORARY: show Stripe's reason while the monthly plan is being tested.
-    throw new HttpError(502, 'Could not start checkout. Please try again.' + (e?.raw?.message ? ` [${e.raw.message}]` : ''));
+    throw new HttpError(502, 'Could not start checkout. Please try again.');
   }
 }
 

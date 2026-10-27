@@ -3,7 +3,7 @@ import { verifyWebhook, getStripe } from '../lib/stripe.js';
 import { query } from '../lib/db.js';
 import { notify, sendEmail } from '../lib/notify.js';
 import { renderEmail } from '../lib/email.js';
-import { money, paymentDates } from '../lib/bundles.js';
+import { money, paymentDates, addMonths } from '../lib/bundles.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -56,10 +56,40 @@ async function findPlanOrder(inv) {
   return rows[0] || null;
 }
 
+// After the down payment clears, start the monthly subscription (first charge one month out, no trial).
+async function startPlan(session, bo, orderId, pi) {
+  const { rows: [o] } = await query('SELECT * FROM bundle_orders WHERE id = $1', [orderId]);
+  if (!o || o.plan !== 'monthly' || o.stripe_subscription_id) return;
+  await query(`INSERT INTO bundle_payments (invoice_id, order_id, kind, amount_cents) VALUES ($1,$2,'down',$3) ON CONFLICT (invoice_id) DO NOTHING`,
+    [pi || `session-${session.id}`, o.id, o.amount_cents]);
+  try {
+    const stripe = getStripe();
+    const customer = typeof session.customer === 'string' ? session.customer : session.customer?.id;
+    const intent = await stripe.paymentIntents.retrieve(pi);
+    const pm = typeof intent.payment_method === 'string' ? intent.payment_method : intent.payment_method?.id;
+    const product = await stripe.products.create({ name: `Gold Coast Cowboys 2027 Season Pass (monthly payments)` }, { idempotencyKey: `gcc-prod-${o.id}` });
+    const sub = await stripe.subscriptions.create({
+      customer, default_payment_method: pm,
+      items: [{ price_data: { currency: 'usd', product: product.id, unit_amount: o.plan_monthly_cents, recurring: { interval: 'month' } } }],
+      billing_cycle_anchor: Math.floor(addMonths(new Date(o.created_at), 1).getTime() / 1000),
+      proration_behavior: 'none',
+      metadata: { bundle_order_id: String(o.id) },
+    }, { idempotencyKey: `gcc-sub-${o.id}` });
+    await query('UPDATE bundle_orders SET stripe_subscription_id = $1, plan_status = $2 WHERE id = $3', [sub.id, 'active', o.id]);
+  } catch (e) {
+    console.error('could not start payment plan', o.id, e);
+    await safely(() => notify({ subject: `ACTION NEEDED: monthly plan not started for ${o.buyer_name}`,
+      ...renderEmail({ preheader: 'Down payment received but the monthly schedule could not be created.', eyebrow: 'Action needed',
+        heading: 'Monthly payments were not scheduled',
+        intro: [`${o.buyer_name} (${o.email}) paid the down payment but the monthly subscription could not be created automatically. Check Stripe and set it up manually.`] }) }));
+  }
+}
+
 async function invoicePaid(inv) {
+  if (inv.billing_reason === 'subscription_create') return; // $0 starter invoice; the down payment is recorded at checkout
   const o = await findPlanOrder(inv);
   if (!o) return;
-  const kind = inv.billing_reason === 'subscription_create' ? 'down' : 'monthly';
+  const kind = 'monthly';
   // The invoice id makes this idempotent: Stripe may deliver the same event more than once.
   const { rows: ins } = await query(
     `INSERT INTO bundle_payments (invoice_id, order_id, kind, amount_cents) VALUES ($1,$2,$3,$4)
@@ -149,8 +179,11 @@ export async function applyEvent(event) {
           `UPDATE bundle_orders SET status = 'paid', paid_at = now(), stripe_payment_intent = $2,
                   stripe_subscription_id = COALESCE($3, stripe_subscription_id)
             WHERE stripe_session_id = $1 AND status IN ('pending','expired')
-            RETURNING bundle_slug, buyer_name, email, amount_cents, plan, plan_months, plan_monthly_cents, plan_total_cents, created_at`, [obj.id, pi, sub]);
-        if (bo) await bundleEmails(bo);
+            RETURNING id, bundle_slug, buyer_name, email, amount_cents, plan, plan_months, plan_monthly_cents, plan_total_cents, created_at`, [obj.id, pi, sub]);
+        if (bo) {
+          if (bo.plan === 'monthly') await startPlan(obj, bo, bo.id, pi);
+          await bundleEmails(bo);
+        }
       }
       break;
     case 'checkout.session.expired':
