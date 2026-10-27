@@ -72,7 +72,8 @@ async function bundleCheckout(req, res, body) {
   } catch (e) {
     await query(`UPDATE bundle_orders SET status = 'expired' WHERE id = $1`, [order.id]);
     console.error('Stripe bundle checkout failed', e);
-    throw new HttpError(502, 'Could not start checkout. Please try again.');
+    // TEMPORARY: show Stripe's reason while the monthly plan is being tested.
+    throw new HttpError(502, 'Could not start checkout. Please try again.' + (e?.raw?.message ? ` [${e.raw.message}]` : ''));
   }
 }
 
