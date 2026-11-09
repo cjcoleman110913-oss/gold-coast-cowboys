@@ -53,6 +53,7 @@ export async function startServer({ port = 0 } = {}) {
     '/api/webhook': (await import('../api/webhook.js')).default,
     '/api/order-status': (await import('../api/order-status.js')).default,
     '/api/redeem': (await import('../api/redeem.js')).default,
+    '/api/subscribe': (await import('../api/subscribe.js')).default,
     '/api/listings': (await import('../api/listings.js')).default,
     '/api/listing-manage': (await import('../api/listing-manage.js')).default
   };

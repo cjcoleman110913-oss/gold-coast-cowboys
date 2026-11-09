@@ -610,3 +610,14 @@ test('bundles: sales close after May 26, 2027', async () => {
   assert.equal(SALE_ENDS_AT.toISOString(), '2027-05-27T05:00:00.000Z');
   assert.equal((await new Client().req('GET', '/api/checkout')).json.bundles[0].saleEnded, false);
 });
+
+test('newsletter: signups are stored once, validated, and exportable by admin', async () => {
+  const anon = new Client();
+  assert.equal((await anon.req('POST', '/api/subscribe', { email: 'nope' })).status, 400);
+  assert.equal((await anon.req('POST', '/api/subscribe', { email: 'Fan@X.com ', source: 'popup' })).status, 200);
+  assert.equal((await anon.req('POST', '/api/subscribe', { email: 'fan@x.com', source: 'footer' })).status, 200);
+  const { rows } = await S.db.query('SELECT email, source FROM subscribers');
+  assert.deepEqual(rows, [{ email: 'fan@x.com', source: 'popup' }], 'duplicate ignored, lowercased');
+  assert.equal((await anon.req('GET', '/api/admin/subscribers')).status, 401);
+  assert.equal((await anon.req('GET', '/api/admin/subscribers-csv')).status, 401);
+});

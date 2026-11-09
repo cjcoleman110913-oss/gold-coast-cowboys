@@ -38,14 +38,20 @@ document.addEventListener('DOMContentLoaded', function () {
     carousel.addEventListener('mouseleave', startTimer);
   }
 
-  // Newsletter form (front-end only placeholder — wire to a real email service later)
+  // Newsletter form
   var form = document.getElementById('newsletter-form');
   var success = document.getElementById('newsletter-success');
   if (form && success) {
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      form.style.display = 'none';
-      success.style.display = 'block';
+      var btn = form.querySelector('button'); btn.disabled = true;
+      fetch('/api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.querySelector('input').value, source: 'footer' }) })
+        .then(function (r) { if (!r.ok) throw 0; form.style.display = 'none'; success.style.display = 'block';
+          try { localStorage.setItem('gcc-subscribed', '1'); } catch (x) {} })
+        .catch(function () { btn.disabled = false; alert('Sorry, that didn\u2019t go through. Please check your email and try again.'); });
     });
+  }
+});
   }
 });

@@ -40,6 +40,7 @@ function showTab(name) {
   if (name === 'buyers') loadBuyers();
   if (name === 'bundles') loadBundles();
   if (name === 'redemptions') loadRedemptions();
+  if (name === 'subscribers') loadSubscribers();
   if (name === 'listings') loadListings();
   if (name === 'team') loadTeam();
 }
@@ -210,6 +211,16 @@ async function loadBundles() {
         el('td', {}, el('span', { class: 'status ' + (o.plan_status === 'past_due' || o.plan_status === 'canceled' ? 'pending' : o.status) }, o.status)), el('td', {}, cancel, release));
     }));
     if (!orders.length) $('bn-table').tBodies[0].replaceChildren(el('tr', {}, el('td', { colspan: 8, class: 'empty' }, 'No bundle purchases yet.')));
+  } catch (e) { fail(e); }
+}
+
+// ---------- newsletter ----------
+async function loadSubscribers() {
+  try {
+    const { subscribers } = await api('subscribers');
+    $('sub-summary').textContent = `${subscribers.length} subscribers`;
+    const rows = subscribers.map((r) => el('tr', {}, el('td', {}, fmt(r.created_at)), el('td', {}, el('a', { href: 'mailto:' + r.email }, r.email)), el('td', {}, r.source || '')));
+    $('sub-table').tBodies[0].replaceChildren(...(rows.length ? rows : [el('tr', {}, el('td', { colspan: 3, class: 'empty' }, 'No signups yet.'))]));
   } catch (e) { fail(e); }
 }
 

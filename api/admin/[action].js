@@ -386,6 +386,25 @@ const actions = {
     res.end(lines.join('\n'));
   },
 
+  // ---------- newsletter subscribers ----------
+  async subscribers(req, res) {
+    need(req, 'GET');
+    await requireAdmin(req);
+    const { rows } = await query('SELECT email, source, created_at FROM subscribers ORDER BY created_at DESC LIMIT 5000');
+    send(res, 200, { subscribers: rows });
+  },
+  async 'subscribers-csv'(req, res) {
+    need(req, 'GET');
+    await requireAdmin(req);
+    const { rows } = await query('SELECT email, source, created_at FROM subscribers ORDER BY created_at DESC');
+    const esc = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const lines = ['Email,Source,Signed up'].concat(rows.map((r) => [r.email, r.source || '', new Date(r.created_at).toISOString()].map(esc).join(',')));
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="gcc-newsletter.csv"');
+    res.end(lines.join('\n'));
+  },
+
   // ---------- roommate / partner listings ----------
   async listings(req, res) {
     need(req, 'GET');
