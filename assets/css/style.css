@@ -276,7 +276,9 @@ section{ padding:88px 0; }
   .ticket-notch{ left:50%; top:-11px; transform:translateX(-50%); }
   .ticket-notch.top{ left:auto; right:-11px; top:-11px; transform:none; }
   .ticket-notch.bottom{ left:-11px; top:-11px; transform:none; }
-  .ticket-admit{ writing-mode:horizontal-tb; font-size:1rem; }
+  .ticket-stub{ flex-wrap:wrap; justify-content:center; }
+  .ticket-admit{ writing-mode:horizontal-tb; font-size:1rem; flex-basis:100%; text-align:center; white-space:nowrap; }
+  .ticket-stub .stub-cta{ white-space:nowrap; }
 }
 
 /* ---------- About / brand block ---------- */
