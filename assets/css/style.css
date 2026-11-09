@@ -255,6 +255,7 @@ section{ padding:88px 0; }
   font-family:var(--mono); font-size:0.74rem; letter-spacing:0.08em; text-transform:uppercase;
   color:var(--ink); border-bottom:1.5px solid var(--ink); padding-bottom:2px;
 }
+.ticket-stub .stub-cta + .stub-cta{ background:var(--ink); color:var(--cream); border-bottom:none; padding:8px 12px; border-radius:2px; font-weight:700; }
 .stub-eyebrow{
   font-family:var(--mono); font-size:0.68rem; letter-spacing:0.14em; text-transform:uppercase;
   color:var(--ink); opacity:0.6;
