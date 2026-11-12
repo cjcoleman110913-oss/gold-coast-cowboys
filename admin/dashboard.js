@@ -219,10 +219,19 @@ async function loadSubscribers() {
   try {
     const { subscribers } = await api('subscribers');
     $('sub-summary').textContent = `${subscribers.length} subscribers`;
-    const rows = subscribers.map((r) => el('tr', {}, el('td', {}, fmt(r.created_at)), el('td', {}, el('a', { href: 'mailto:' + r.email }, r.email)), el('td', {}, r.source || '')));
-    $('sub-table').tBodies[0].replaceChildren(...(rows.length ? rows : [el('tr', {}, el('td', { colspan: 3, class: 'empty' }, 'No signups yet.'))]));
+    const rows = subscribers.map((r) => el('tr', {}, el('td', {}, fmt(r.created_at)), el('td', {}, el('a', { href: 'mailto:' + r.email }, r.email)), el('td', {}, r.source || ''), el('td', {}, r.mc_status === 'ok' ? 'Synced' : (r.mc_status || 'Not synced'))));
+    $('sub-table').tBodies[0].replaceChildren(...(rows.length ? rows : [el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'No signups yet.'))]));
   } catch (e) { fail(e); }
 }
+
+$('sub-sync')?.addEventListener('click', async () => {
+  const b = $('sub-sync'); b.disabled = true;
+  try {
+    const d = await api('subscribers-sync', { method: 'POST', body: {} });
+    alert(d.tried === 0 ? 'Everyone is already synced.' : `Synced ${d.ok} of ${d.tried}.` + (d.lastError ? '\nMailchimp said: ' + d.lastError : ''));
+    loadSubscribers();
+  } catch (e) { fail(e); } finally { b.disabled = false; }
+});
 
 // ---------- redemptions ----------
 const TICKETS = { full_weekend: 'Full weekend', day_pass: 'Day pass', competition_pass: 'Competition pass' };

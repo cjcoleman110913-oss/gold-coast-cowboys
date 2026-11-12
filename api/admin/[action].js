@@ -1,3 +1,4 @@
+import { addToMailchimp } from '../../lib/mailchimp.js';
 import { wrap, send, readJson, HttpError, EMAIL_RE, EVENT_SLUGS, TICKET_TYPES, origin } from '../../lib/http.js';
 import { query, tx } from '../../lib/db.js';
 import {
@@ -390,8 +391,20 @@ const actions = {
   async subscribers(req, res) {
     need(req, 'GET');
     await requireAdmin(req);
-    const { rows } = await query('SELECT email, source, created_at FROM subscribers ORDER BY created_at DESC LIMIT 5000');
+    const { rows } = await query('SELECT email, source, created_at, mc_status FROM subscribers ORDER BY created_at DESC LIMIT 5000');
     send(res, 200, { subscribers: rows });
+  },
+  async 'subscribers-sync'(req, res) {
+    need(req, 'POST');
+    await requireAdmin(req);
+    const { rows } = await query(`SELECT email, source FROM subscribers WHERE mc_status IS DISTINCT FROM 'ok' ORDER BY id LIMIT 500`);
+    let ok = 0; let last = '';
+    for (const r of rows) {
+      const st = await addToMailchimp(r.email, r.source);
+      await query('UPDATE subscribers SET mc_status = $1 WHERE email = $2', [st, r.email]);
+      if (st === 'ok') ok++; else last = st;
+    }
+    send(res, 200, { tried: rows.length, ok, lastError: last });
   },
   async 'subscribers-csv'(req, res) {
     need(req, 'GET');

@@ -12,6 +12,7 @@ export default wrap(async (req, res) => {
   const { rows: [{ n }] } = await query(`SELECT count(*)::int AS n FROM subscribers WHERE created_at > now() - interval '1 hour'`);
   if (n >= 500) throw new HttpError(429, 'Too many signups right now. Please try again later.');
   await query('INSERT INTO subscribers (email, source) VALUES ($1,$2) ON CONFLICT (email) DO NOTHING', [email, source]);
-  await addToMailchimp(email, source);
+  const st = await addToMailchimp(email, source);
+  await query('UPDATE subscribers SET mc_status = $1 WHERE email = $2', [st, email]);
   send(res, 200, { ok: true });
 });
