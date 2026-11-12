@@ -621,3 +621,19 @@ test('newsletter: signups are stored once, validated, and exportable by admin', 
   assert.equal((await anon.req('GET', '/api/admin/subscribers')).status, 401);
   assert.equal((await anon.req('GET', '/api/admin/subscribers-csv')).status, 401);
 });
+
+test('newsletter: signups are pushed to Mailchimp when configured, and never fail the visitor', async () => {
+  const calls = [], realFetch = globalThis.fetch;
+  process.env.MAILCHIMP_API_KEY = 'abc123-us9'; process.env.MAILCHIMP_AUDIENCE_ID = 'aud1';
+  try {
+    globalThis.fetch = async (url, o) => { calls.push([url, o]); return { ok: true, status: 200, text: async () => '' }; };
+    const anon = new Client();
+    assert.equal((await anon.req('POST', '/api/subscribe', { email: 'mc@x.com', source: 'popup' })).status, 200);
+    assert.match(calls[0][0], /^https:\/\/us9\.api\.mailchimp\.com\/3\.0\/lists\/aud1\/members\/[0-9a-f]{32}$/);
+    assert.equal(calls[0][1].method, 'PUT');
+    assert.equal(JSON.parse(calls[0][1].body).status_if_new, 'subscribed');
+    globalThis.fetch = async () => { throw new Error('down'); };
+    assert.equal((await anon.req('POST', '/api/subscribe', { email: 'mc2@x.com' })).status, 200, 'Mailchimp outage does not fail signup');
+    assert.equal((await S.db.query(`SELECT count(*)::int n FROM subscribers WHERE email IN ('mc@x.com','mc2@x.com')`)).rows[0].n, 2);
+  } finally { globalThis.fetch = realFetch; delete process.env.MAILCHIMP_API_KEY; delete process.env.MAILCHIMP_AUDIENCE_ID; }
+});

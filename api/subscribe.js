@@ -1,5 +1,6 @@
 import { wrap, send, readJson, HttpError, EMAIL_RE } from '../lib/http.js';
 import { query } from '../lib/db.js';
+import { addToMailchimp } from '../lib/mailchimp.js';
 
 // Newsletter signup (home-page form and the welcome pop-up). Emails are stored for the admin to export.
 export default wrap(async (req, res) => {
@@ -11,5 +12,6 @@ export default wrap(async (req, res) => {
   const { rows: [{ n }] } = await query(`SELECT count(*)::int AS n FROM subscribers WHERE created_at > now() - interval '1 hour'`);
   if (n >= 500) throw new HttpError(429, 'Too many signups right now. Please try again later.');
   await query('INSERT INTO subscribers (email, source) VALUES ($1,$2) ON CONFLICT (email) DO NOTHING', [email, source]);
+  await addToMailchimp(email, source);
   send(res, 200, { ok: true });
 });
