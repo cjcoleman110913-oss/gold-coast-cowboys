@@ -225,10 +225,10 @@ async function loadSubscribers() {
 }
 
 $('sub-sync')?.addEventListener('click', async () => {
-  const b = $('sub-sync'); b.disabled = true;
+  const b = $('sub-sync'); b.disabled = true; toast('Syncing with Mailchimp…');
   try {
     const d = await api('subscribers-sync', { method: 'POST', body: {} });
-    alert(d.tried === 0 ? 'Everyone is already synced.' : `Synced ${d.ok} of ${d.tried}.` + (d.lastError ? '\nMailchimp said: ' + d.lastError : ''));
+    toast(d.tried === 0 ? 'Everyone is already synced.' : `Synced ${d.ok} of ${d.tried}.` + (d.lastError ? ' Mailchimp said: ' + d.lastError : ''), d.ok < d.tried);
     loadSubscribers();
   } catch (e) { fail(e); } finally { b.disabled = false; }
 });
