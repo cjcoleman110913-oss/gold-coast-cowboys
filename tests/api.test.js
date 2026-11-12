@@ -626,13 +626,13 @@ test('newsletter: signups are pushed to Mailchimp when configured, and never fai
   const calls = [], realFetch = globalThis.fetch;
   process.env.MAILCHIMP_API_KEY = 'abc123-us9'; process.env.MAILCHIMP_AUDIENCE_ID = 'aud1';
   try {
-    globalThis.fetch = async (url, o) => { calls.push([url, o]); return { ok: true, status: 200, text: async () => '' }; };
+    globalThis.fetch = async (url, o) => { if (!String(url).includes('mailchimp')) return realFetch(url, o); calls.push([url, o]); return { ok: true, status: 200, text: async () => '' }; };
     const anon = new Client();
     assert.equal((await anon.req('POST', '/api/subscribe', { email: 'mc@x.com', source: 'popup' })).status, 200);
     assert.match(calls[0][0], /^https:\/\/us9\.api\.mailchimp\.com\/3\.0\/lists\/aud1\/members\/[0-9a-f]{32}$/);
     assert.equal(calls[0][1].method, 'PUT');
     assert.equal(JSON.parse(calls[0][1].body).status_if_new, 'subscribed');
-    globalThis.fetch = async () => { throw new Error('down'); };
+    globalThis.fetch = async (url, o) => { if (!String(url).includes('mailchimp')) return realFetch(url, o); throw new Error('down'); };
     assert.equal((await anon.req('POST', '/api/subscribe', { email: 'mc2@x.com' })).status, 200, 'Mailchimp outage does not fail signup');
     assert.equal((await S.db.query(`SELECT count(*)::int n FROM subscribers WHERE email IN ('mc@x.com','mc2@x.com')`)).rows[0].n, 2);
   } finally { globalThis.fetch = realFetch; delete process.env.MAILCHIMP_API_KEY; delete process.env.MAILCHIMP_AUDIENCE_ID; }
